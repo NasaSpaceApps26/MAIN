@@ -23,3 +23,13 @@ services:
       - /app/node_modules
     depends_on:
       - backend
+      - moon-sky
+
+  moon-sky:
+    build:
+      context: ../moon-sky
+      dockerfile: ../docker/moon-sky.Dockerfile
+    ports:
+      - "${MOON_SKY_PORT:-3001}:3001"
+    volumes:
+      - ../moon-sky:/app

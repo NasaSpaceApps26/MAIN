@@ -1,0 +1,152 @@
+/* Lunar Sky panel – every rule is scoped under .moon-sky so it doesn't leak into the 3D view. */
+.moon-sky {
+  --bg: #0b0f1a;
+  --card: #141a29;
+  --line: #263049;
+  --text: #e6e9f2;
+  --muted: #8a93ab;
+  --accent: #8ab4ff;
+  --sun: #f5b83d;
+  --earth: #4ea8ff;
+  --both: #3ecf8e;
+  --warn: #ff9f5a;
+  --err: #ff6b6b;
+  color-scheme: dark;
+  /* fills the slide-over panel and scrolls on its own (html/body have overflow: hidden) */
+  position: absolute;
+  inset: 0;
+  overflow-y: auto;
+  background: var(--bg);
+  color: var(--text);
+  font: 14px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  /* layout responds to the panel width, not the window width */
+  container: moon-sky / inline-size;
+}
+.moon-sky * { box-sizing: border-box; }
+.moon-sky .app { max-width: 1280px; margin: 0 auto; padding: 16px; }
+.moon-sky header h1 { margin: 0; font-size: 22px; }
+.moon-sky .sub { margin: 4px 0 14px; color: var(--muted); }
+.moon-sky .sub b { color: var(--text); }
+.moon-sky .loading { color: var(--accent); }
+.moon-sky .muted { color: var(--muted); }
+.moon-sky small { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 6px; }
+
+.moon-sky .grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 14px; margin-bottom: 14px; }
+@container moon-sky (max-width: 680px) { .moon-sky .grid { grid-template-columns: minmax(0, 1fr); } }
+
+.moon-sky .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
+.moon-sky .grid .card { margin-bottom: 0; }
+.moon-sky .card h2 { margin: 0 0 10px; font-size: 15px; }
+
+.moon-sky .error { background: #3a1820; border: 1px solid var(--err); color: #ffd0d0; padding: 10px 14px; border-radius: 10px; margin-bottom: 14px; }
+
+/* form */
+.moon-sky .controls { display: flex; flex-direction: column; gap: 10px; }
+.moon-sky .controls label { display: flex; flex-direction: column; gap: 4px; color: var(--muted); font-size: 12px; }
+.moon-sky .row2, .moon-sky .row3 { display: grid; gap: 8px; }
+.moon-sky .row2 { grid-template-columns: 1fr 1fr; }
+.moon-sky .row3 { grid-template-columns: 1fr 1fr 1fr; }
+.moon-sky .row2 > *, .moon-sky .row3 > * { min-width: 0; }
+.moon-sky .controls input, .moon-sky .controls select { width: 100%; }
+.moon-sky .inline input { width: auto; }
+.moon-sky .inline { display: flex; gap: 6px; }
+.moon-sky .inline input { flex: 1; }
+.moon-sky input, .moon-sky select, .moon-sky button {
+  font: inherit; color: var(--text); background: #0e1320; border: 1px solid var(--line);
+  border-radius: 8px; padding: 7px 9px; min-width: 0;
+}
+.moon-sky input:focus, .moon-sky select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
+.moon-sky button { cursor: pointer; background: #1d2740; }
+.moon-sky button:hover:not(:disabled) { background: #273458; }
+.moon-sky button[type='submit'] { background: #2b4d9a; border-color: #3d63bd; }
+.moon-sky button:disabled { opacity: 0.45; cursor: default; }
+.moon-sky hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; width: 100%; }
+.moon-sky .hint { margin: 0; color: var(--muted); font-size: 12px; }
+.moon-sky .field-error { margin: 0; color: var(--err); font-size: 12px; }
+
+/* map */
+.moon-sky .site-select { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; color: var(--muted); font-size: 12px; }
+.moon-sky .site-select select { width: 100%; }
+.moon-sky .moonmap svg { width: 100%; height: auto; display: block; border-radius: 8px; cursor: crosshair; }
+.moon-sky .moonmap .far { fill: #1a1f2b; }
+.moon-sky .moonmap .near { fill: #2a3040; }
+.moon-sky svg .grid { stroke: #ffffff14; stroke-width: 1; fill: none; }
+.moon-sky svg .grid.main { stroke: #ffffff33; }
+.moon-sky svg .axis { fill: var(--muted); font-size: 11px; }
+.moon-sky .moonmap .side { fill: #ffffff55; font-size: 12px; letter-spacing: 0.5px; }
+.moon-sky .site circle { fill: #c9ccd6; stroke: #0b0f1a; stroke-width: 1.5; cursor: pointer; }
+.moon-sky .site:hover circle { fill: #fff; r: 6; }
+.moon-sky .site.active circle { fill: var(--accent); }
+.moon-sky .cursor circle { fill: none; stroke: #ff5577; stroke-width: 2; }
+.moon-sky .cursor line { stroke: #ff5577; stroke-width: 1.5; }
+.moon-sky .maplegend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 8px; font-size: 12px; align-items: center; }
+.moon-sky .dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 4px; vertical-align: -1px; }
+.moon-sky .dot.site { background: #c9ccd6; }
+.moon-sky .dot.cur { border: 2px solid #ff5577; }
+.moon-sky .dot.sun { background: var(--sun); }
+.moon-sky .dot.earth { background: var(--earth); }
+.moon-sky .dot.both { background: var(--both); opacity: 0.5; border-radius: 2px; }
+
+/* metrics */
+.moon-sky .metrics { display: grid; gap: 10px 20px; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); }
+.moon-sky .metric { border-left: 3px solid var(--line); padding: 2px 0 2px 12px; }
+.moon-sky .metric.sun { border-color: var(--sun); }
+.moon-sky .metric.earth { border-color: var(--earth); }
+.moon-sky .metric.both.ok { border-color: var(--both); }
+.moon-sky .metric.both.warn { border-color: var(--warn); }
+.moon-sky .metric h3 { margin: 0 0 6px; font-size: 14px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.moon-sky .metric p { margin: 0; }
+.moon-sky .metric dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 14px; margin: 0; }
+.moon-sky .metric dt { color: var(--muted); }
+.moon-sky .metric dd { margin: 0; font-variant-numeric: tabular-nums; }
+.moon-sky .badge { font-size: 11px; font-weight: 500; padding: 1px 8px; border-radius: 99px; }
+.moon-sky .badge.up { background: #1d3b2e; color: var(--both); }
+.moon-sky .badge.down { background: #3a2a1e; color: var(--warn); }
+
+/* sky */
+.moon-sky .dome svg { width: 100%; max-width: 380px; display: block; margin: 0 auto; overflow: visible; }
+.moon-sky .dome .sky { fill: #0e1830; stroke: #ffffff44; }
+.moon-sky .dome .card-dir { fill: var(--text); font-size: 13px; font-weight: 600; }
+.moon-sky .track { fill: none; stroke-width: 1.2; stroke-dasharray: 3 3; opacity: 0.6; }
+.moon-sky .track.sun { stroke: var(--sun); }
+.moon-sky .track.earth { stroke: var(--earth); }
+.moon-sky .body circle { stroke: #0b0f1a; stroke-width: 2; }
+.moon-sky .body.sun circle { fill: var(--sun); }
+.moon-sky .body.earth circle { fill: var(--earth); }
+.moon-sky .body text { fill: var(--text); font-size: 12px; }
+.moon-sky .body.below circle { fill: none; stroke-dasharray: 3 2; stroke-width: 2; }
+.moon-sky .body.sun.below circle { stroke: var(--sun); }
+.moon-sky .body.earth.below circle { stroke: var(--earth); }
+.moon-sky .body.below text { fill: var(--muted); }
+.moon-sky .dome .hint { text-align: center; }
+
+/* timeline */
+.moon-sky .timebar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }
+.moon-sky .timebar input[type='range'] { flex: 1; min-width: 160px; padding: 0; accent-color: var(--accent); }
+.moon-sky .timebar .time { font-variant-numeric: tabular-nums; min-width: 150px; text-align: right; }
+.moon-sky .chart svg { width: 100%; height: auto; display: block; cursor: ew-resize; touch-action: none; user-select: none; }
+.moon-sky .chart .ln { fill: none; stroke-width: 2; }
+.moon-sky .chart .ln.sun { stroke: var(--sun); }
+.moon-sky .chart .ln.earth { stroke: var(--earth); }
+.moon-sky .chart .pt { stroke: #0b0f1a; stroke-width: 2; }
+.moon-sky .chart .pt.sun { fill: var(--sun); }
+.moon-sky .chart .pt.earth { fill: var(--earth); }
+.moon-sky .chart .now { stroke: #fff; stroke-width: 1.5; }
+.moon-sky .chart .thr { stroke: var(--warn); stroke-dasharray: 6 4; }
+.moon-sky .chart .both-band { fill: var(--both); opacity: 0.12; }
+
+/* windows */
+.moon-sky .windows { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+@container moon-sky (max-width: 720px) { .moon-sky .windows { grid-template-columns: minmax(0, 1fr); } }
+.moon-sky .wtable h3 { margin: 0 0 6px; font-size: 13px; }
+.moon-sky .wtable h3.sun { color: var(--sun); }
+.moon-sky .wtable h3.earth { color: var(--earth); }
+.moon-sky .wtable h3.both { color: var(--both); }
+.moon-sky .wtable table { width: 100%; border-collapse: collapse; font-size: 12px; font-variant-numeric: tabular-nums; }
+.moon-sky .wtable th { text-align: left; color: var(--muted); font-weight: 500; padding: 3px 4px; border-bottom: 1px solid var(--line); }
+.moon-sky .wtable td { padding: 4px; border-bottom: 1px solid #ffffff0a; }
+.moon-sky .wtable tbody tr { cursor: pointer; }
+.moon-sky .wtable tbody tr:hover { background: #ffffff0a; }
+.moon-sky .wtable tr.current { background: #8ab4ff22; }
+
+.moon-sky footer { font-size: 12px; text-align: center; padding: 8px 0 20px; }

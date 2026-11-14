@@ -1,0 +1,102 @@
+/* Slide-over panel on the left edge of the viewport. Closed = pushed off-screen, only the tabs show. */
+.drawer {
+  --duration: 0.35s;
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 2;
+  /* settings tab: narrow form; always leave most of the solar system visible */
+  width: min(420px, calc(100% - 96px));
+  transform: translateX(-100%);
+  transition:
+    transform var(--duration) ease,
+    width var(--duration) ease;
+}
+
+/* results tab: wide, still leaving a strip of the solar system visible on the right */
+.wide {
+  width: min(880px, calc(100% - 96px));
+}
+
+.open {
+  transform: none;
+  box-shadow: 12px 0 32px rgba(0, 0, 0, 0.6);
+}
+
+.body {
+  position: absolute;
+  inset: 0;
+  border-right: 1px solid var(--line);
+  /* hide after the slide-out finishes so nothing inside is reachable while closed */
+  visibility: hidden;
+  transition: visibility 0s linear var(--duration);
+}
+
+.open .body {
+  visibility: visible;
+  transition-delay: 0s;
+}
+
+/* the tabs sticking out of the panel's right edge */
+.handles {
+  position: absolute;
+  top: 50%;
+  left: 100%;
+  translate: 0 -50%;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.handle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 16px 9px;
+  writing-mode: vertical-rl;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+  background: linear-gradient(90deg, var(--bar-bottom), var(--bar-top));
+  border: 1px solid var(--line);
+  border-left: 0;
+  border-radius: 0 6px 6px 0;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.5);
+  cursor: pointer;
+  transition:
+    color 0.15s,
+    background 0.15s,
+    box-shadow 0.15s;
+}
+
+.handle span {
+  rotate: -90deg;
+  font-size: 16px;
+  line-height: 1;
+}
+
+.handle:hover {
+  color: var(--text);
+  box-shadow: 0 0 12px var(--glow);
+}
+
+.active,
+.active:hover {
+  color: var(--space-black);
+  background: var(--accent);
+}
+
+.handle:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .drawer {
+    --duration: 0s;
+  }
+}
