@@ -40,6 +40,20 @@ export function radiusToUnits(radiusKm: number, bodyId: string, size = 1) {
   return units * option.size
 }
 
+/** Radius along x, y (pole to pole) and z. A flattened planet has a smaller y. */
+export type Shape = [number, number, number]
+
+/**
+ * Equatorial and polar radius of a body flattened by its spin (Saturn, Jupiter...).
+ * The volumetric mean radius stays the same: equatorial² × polar = mean³.
+ * `flattening` = (equatorial - polar) / equatorial, from the NASA fact sheets (via the backend).
+ */
+export function spheroidRadii(meanRadius: number, flattening: number) {
+  const equatorial = meanRadius / Math.cbrt(1 - flattening)
+  return { equatorial, polar: equatorial * (1 - flattening) }
+}
+
+
 /**
  * Horizons uses the ecliptic frame: X/Y lie in the plane of Earth's orbit, Z points to ecliptic north.
  * three.js uses Y as "up", so: scene.x = X, scene.y = Z, scene.z = -Y.
