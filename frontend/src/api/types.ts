@@ -79,7 +79,7 @@ export type OrbitalElements = {
 export type BodyEphemeris = {
   body_id: string
   samples: StateSample[]
-  daily_orbits: OrbitalElements[] | null // only the Moon; planet orbits come from /api/orbits
+    daily_orbits: OrbitalElements[] | null // the orbit for every day (null in years downloaded before this change)
 }
 
 // GET /api/ephemeris/year

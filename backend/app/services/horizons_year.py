@@ -1,10 +1,11 @@
-"""Positions of every body for one year, plus the Moon's orbit for every day of that year.
+"""Positions of every body for one year, plus every body's orbit for every day of that year.
 
 Based on the team's standalone ephemeris script, with these changes:
 - the start date comes from the simulation clock (sent by the frontend), stop = start + 366 days
 - ecliptic J2000 frame, centred on the Sun (the same frame as the orbital-elements table)
-- the Moon's orbit changes noticeably from day to day, so its orbital elements are downloaded
-  for every day of the year (planet orbits barely change: see services/orbits.py)
+- orbits slowly drift over the decades (and Earth's wobbles every month because of the Moon),
+  so one fixed orbit doesn't match the real positions. Instead the orbital elements of every
+  body are downloaded for every day of the year: the orbit of the same day always matches.
 - the result is saved as JSON in data/cache, so each year is only downloaded once
 """
 
@@ -26,9 +27,8 @@ STEP = "1 day"  # smooth motion comes from interpolation in the frontend
 SUN = "500@10"  # Sun centre
 EARTH = "500@399"  # Earth centre
 
-# Bodies whose orbit changes noticeably during a year, and what they go around.
-# Their orbit is downloaded for every day. (Planet orbits are loaded once: services/orbits.py)
-DAILY_ORBITS = {"moon": EARTH}
+# What each body's orbit goes around. Bodies not listed here go around the Sun.
+ORBIT_CENTERS = {"moon": EARTH}
 
 # Settings shared by every request. Horizons wants each value wrapped in single quotes.
 BASE_PARAMS = {
@@ -146,15 +146,12 @@ def get_year(start: date) -> EphemerisYear:
         if body.id == "sun":
             continue  # the Sun is the centre of the frame, always at (0, 0, 0)
 
-        daily_orbits = None
-        if body.id in DAILY_ORBITS:
-            center = DAILY_ORBITS[body.id]
-            daily_orbits = fetch_orbital_elements(body.horizons_id, center, start, stop)
-
+        center = ORBIT_CENTERS.get(body.id, SUN)
         bodies[body.id] = BodyEphemeris(
             body_id=body.id,
             samples=fetch_state_vectors(body.horizons_id, start, stop),
-            daily_orbits=daily_orbits,
+            # the orbit for every day, so the orbit line always matches the position
+            daily_orbits=fetch_orbital_elements(body.horizons_id, center, start, stop),
         )
 
     year = EphemerisYear(

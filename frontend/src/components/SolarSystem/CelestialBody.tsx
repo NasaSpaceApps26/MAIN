@@ -4,8 +4,8 @@ import { Html } from '@react-three/drei'
 import type { Group, Mesh } from 'three'
 import type { Body, StateSample } from '../../api/types'
 import { useSimStore } from '../../store/simStore'
-import { positionAt } from './orbitMath'
-import { radiusToUnits } from './scale'
+import { drawnPositionAt } from './orbitMath'
+import { moonOrbitScale, radiusToUnits } from './scale'
 
 const labelStyle = {
   transform: 'translate(8px, -50%)',
@@ -23,16 +23,21 @@ type Props = {
   body: Body
   // Daily positions from Horizons. The Sun has none: it stays at the origin.
   samples?: StateSample[]
+  // Positions of the planet this body goes around (Earth for the Moon), else nothing
+  parentSamples?: StateSample[]
 }
 
-export function CelestialBody({ body, samples }: Props) {
+export function CelestialBody({ body, samples, parentSamples }: Props) {
   const group = useRef<Group>(null)
   const mesh = useRef<Mesh>(null)
   const selectBody = useSimStore((s) => s.selectBody)
+  const planetSize = useSimStore((s) => s.planetSize)
 
   useFrame(() => {
     const t = useSimStore.getState().simTimeMs
-    if (group.current && samples) positionAt(samples, t, group.current.position)
+    if (group.current && samples) {
+      drawnPositionAt(samples, parentSamples, t, moonOrbitScale(planetSize), group.current.position)
+    }
     if (mesh.current) {
       const hours = t / 3_600_000
       mesh.current.rotation.y = (hours / body.rotation_period_h) * Math.PI * 2
@@ -48,7 +53,7 @@ export function CelestialBody({ body, samples }: Props) {
           selectBody(body.id)
         }}
       >
-        <sphereGeometry args={[radiusToUnits(body.radius_km, body.id), 48, 48]} />
+        <sphereGeometry args={[radiusToUnits(body.radius_km, body.id, planetSize), 48, 48]} />
         {body.id === 'sun' ? (
           <meshBasicMaterial color={body.color} />
         ) : (

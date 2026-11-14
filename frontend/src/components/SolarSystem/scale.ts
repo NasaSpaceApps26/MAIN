@@ -4,14 +4,41 @@ import type { Vector3 } from 'three'
 export const KM_PER_UNIT = 1_000_000
 
 /**
- * Multiplies the radius of planets and the Moon (never the Sun).
- * 1 = true size: correct, but planets are tiny next to their orbits, so use the labels to find them.
- * Try 100–500 to see them from far away (the Moon will then end up inside Earth).
+ * The size choices in the top bar.
+ *  - size: how many times bigger the PLANETS are drawn. Planet orbits always stay the same.
+ *  - sunSize: how many times bigger the Sun is drawn. Keep it below ~60, or it reaches Mercury's orbit.
+ *  - moonSize: how many times bigger the Moon is drawn. Grows a little (+20%) per step.
+ *  - moonOrbit: how many times further the Moon is drawn from Earth than in reality.
+ *    Big planets would swallow the Moon's real orbit (at ×250 Earth's radius is already 4× the
+ *    Earth–Moon distance), so the orbit grows with the size. Not to scale, but always clearly visible.
+ * "Off" shows everything at its true size and distance.
  */
-export const SIZE_SCALE = 1
+export const SIZE_OPTIONS: {
+  size: number
+  sunSize: number
+  moonSize: number
+  moonOrbit: number
+  label: string
+}[] = [
+  { size: 1, sunSize: 1, moonSize: 1, moonOrbit: 1, label: 'Off' },
+  { size: 250, sunSize: 25, moonSize: 500, moonOrbit: 15, label: '×250' },
+  { size: 500, sunSize: 25, moonSize: 600, moonOrbit: 25, label: '×500' },
+  { size: 1000, sunSize: 25, moonSize: 720, moonOrbit: 50, label: '×1000' },
+]
 
-export const radiusToUnits = (radiusKm: number, bodyId: string) =>
-  (radiusKm / KM_PER_UNIT) * (bodyId === 'sun' ? 1 : SIZE_SCALE)
+const optionFor = (size: number) => SIZE_OPTIONS.find((o) => o.size === size) ?? SIZE_OPTIONS[0]
+
+/** How much the Moon's distance from Earth is stretched at this planet size */
+export const moonOrbitScale = (size: number) => optionFor(size).moonOrbit
+
+/** Drawn radius in scene units. `size` is the planet size picked in the top bar. */
+export function radiusToUnits(radiusKm: number, bodyId: string, size = 1) {
+  const units = radiusKm / KM_PER_UNIT
+  const option = optionFor(size)
+  if (bodyId === 'sun') return units * option.sunSize
+  if (bodyId === 'moon') return units * option.moonSize
+  return units * option.size
+}
 
 /**
  * Horizons uses the ecliptic frame: X/Y lie in the plane of Earth's orbit, Z points to ecliptic north.

@@ -49,3 +49,67 @@
   text-transform: uppercase;
   color: var(--text-dim);
 }
+
+.controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+/* Planet size picker: same height and look as the clock box next to it */
+.sizeBox {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-sizing: border-box;
+  height: 46px;
+  padding: 0 8px 0 14px;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.sizeLabel {
+  font-size: 10px;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.sizes {
+  display: flex;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+
+.size {
+  padding: 6px 10px;
+  font-size: 11px;
+  color: var(--text-dim);
+  background: transparent;
+  border: 0;
+  border-right: 1px solid var(--line);
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+
+.size:last-child {
+  border-right: 0;
+}
+
+.size:hover {
+  color: var(--text);
+  background: var(--accent-soft);
+}
+
+.active,
+.active:hover {
+  color: var(--space-black);
+  background: var(--accent);
+}
+
+.size:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 2px;
+}

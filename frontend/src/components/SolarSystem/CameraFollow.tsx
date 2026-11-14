@@ -3,48 +3,54 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { Vector3 } from 'three'
 import type { Body, EphemerisYear } from '../../api/types'
 import { useSimStore } from '../../store/simStore'
-import { positionAt } from './orbitMath'
-import { radiusToUnits } from './scale'
-
-// The only parts of drei's OrbitControls we need
-type Controls = { target: Vector3 }
+import { drawnPositionAt, parentSamplesOf } from './orbitMath'
+import { moonOrbitScale, radiusToUnits } from './scale'
 
 type Props = { bodies: Body[]; year: EphemerisYear }
 
 /**
- * Keeps the camera on the selected body while it moves along its orbit.
- * On a new selection the camera jumps close to the body; after that you can rotate and zoom
- * as usual. Click empty space to deselect and fly freely again.
+ * Keeps the camera with the selected body while it moves along its orbit.
+ * On a new selection (or when the planet size changes) the camera jumps to ~8 radii from the
+ * body, looking at it. After that it travels along with the body, so W/A/S/D and the mouse work
+ * as if the body stood still. Click empty space to deselect: the camera then stays where it is.
  */
 export function CameraFollow({ bodies, year }: Props) {
   const camera = useThree((s) => s.camera)
-  const controls = useThree((s) => s.controls) as unknown as Controls | null
-  const lastSelected = useRef<string | null>(null)
+  const jumpedTo = useRef<string | null>(null) // e.g. "earth:25": body + size we last jumped to
   const bodyPos = useRef(new Vector3())
-  const offset = useRef(new Vector3())
+  const lastBodyPos = useRef(new Vector3())
+  const step = useRef(new Vector3())
 
   useFrame(() => {
-    const { selectedBodyId, simTimeMs } = useSimStore.getState()
+    const { selectedBodyId, simTimeMs, planetSize } = useSimStore.getState()
     const body = bodies.find((b) => b.id === selectedBodyId)
-    if (!controls || !body) {
-      lastSelected.current = null
+    if (!body) {
+      jumpedTo.current = null
       return
     }
 
     const samples = year.bodies[body.id]?.samples
-    if (samples) positionAt(samples, simTimeMs, bodyPos.current)
-    else bodyPos.current.set(0, 0, 0) // the Sun
-
-    // Where the camera is relative to what it looks at (what the user rotated/zoomed to)
-    offset.current.subVectors(camera.position, controls.target)
-    if (lastSelected.current !== body.id) {
-      lastSelected.current = body.id
-      offset.current.setLength(radiusToUnits(body.radius_km, body.id) * 8) // ~8 radii away
+    if (samples) {
+      const parent = parentSamplesOf(year, body.id)
+      drawnPositionAt(samples, parent, simTimeMs, moonOrbitScale(planetSize), bodyPos.current)
+    } else {
+      bodyPos.current.set(0, 0, 0) // the Sun
     }
 
-    // Move the target and the camera together, so the view travels with the body
-    controls.target.copy(bodyPos.current)
-    camera.position.copy(bodyPos.current).add(offset.current)
+    const key = `${body.id}:${planetSize}`
+    if (jumpedTo.current !== key) {
+      jumpedTo.current = key
+      // Jump: stay on the side of the body we're already on, ~8 radii away, and look at it
+      step.current.subVectors(camera.position, bodyPos.current).normalize()
+      if (step.current.lengthSq() === 0) step.current.set(0, 0.5, 1).normalize()
+      const distance = radiusToUnits(body.radius_km, body.id, planetSize) * 8
+      camera.position.copy(bodyPos.current).addScaledVector(step.current, distance)
+      camera.lookAt(bodyPos.current)
+    } else {
+      // Travel with the body: move the camera exactly as far as the body moved since last frame
+      camera.position.add(step.current.subVectors(bodyPos.current, lastBodyPos.current))
+    }
+    lastBodyPos.current.copy(bodyPos.current)
   })
 
   return null

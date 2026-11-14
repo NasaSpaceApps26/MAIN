@@ -26,10 +26,12 @@ type Props = {
   // Positions of the body this orbit goes around, if it moves (Earth for the Moon).
   // Leave empty for orbits around the Sun, which stays at the origin.
   parentSamples?: StateSample[]
+  // Draws the orbit this many times bigger around its center (the Moon's orbit at big planet sizes)
+  scale?: number
   color?: string
 }
 
-export function OrbitLine({ orbits, samples, parentSamples, color = '#ffffff' }: Props) {
+export function OrbitLine({ orbits, samples, parentSamples, scale = 1, color = '#ffffff' }: Props) {
   const group = useRef<Group>(null)
   const line = useRef<ComponentRef<typeof Line>>(null)
   const center = useRef(new Vector3())
@@ -61,6 +63,7 @@ export function OrbitLine({ orbits, samples, parentSamples, color = '#ffffff' }:
     if (!samples) return // positions not loaded yet: keep the even line
 
     // Which point of the ellipse is the body closest to right now?
+    // (Real, unstretched positions: the group's scale does the stretching when it's drawn.)
     positionAt(samples, t, bodyPos.current).sub(center.current)
     let point = 0
     let best = Infinity
@@ -96,7 +99,7 @@ export function OrbitLine({ orbits, samples, parentSamples, color = '#ffffff' }:
   })
 
   return (
-    <group ref={group}>
+    <group ref={group} scale={scale}>
       <Line
         ref={line}
         points={points}
