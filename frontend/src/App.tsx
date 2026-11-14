@@ -1,5 +1,6 @@
 import { AppLayout } from './components/AppLayout/AppLayout'
 import { BackendStatus } from './components/BackendStatus/BackendStatus'
+import { MoonSkyDrawer } from './components/MoonSkyDrawer/MoonSkyDrawer'
 import { SolarSystem } from './components/SolarSystem/SolarSystem'
 import { TopBar } from './components/TopBar/TopBar'
 
@@ -8,6 +9,7 @@ export default function App() {
     <AppLayout header={<TopBar />}>
       <BackendStatus />
       <SolarSystem />
+      <MoonSkyDrawer />
     </AppLayout>
   )
 }

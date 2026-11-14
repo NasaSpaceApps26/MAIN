@@ -1,0 +1,19 @@
+[
+  { "id": "apollo11", "name": "Apollo 11", "lat": 0.6741, "lon": 23.4730, "year": 1969, "agency": "NASA", "region": "Mare Tranquillitatis" },
+  { "id": "apollo12", "name": "Apollo 12", "lat": -3.0124, "lon": -23.4216, "year": 1969, "agency": "NASA", "region": "Oceanus Procellarum" },
+  { "id": "apollo14", "name": "Apollo 14", "lat": -3.6453, "lon": -17.4714, "year": 1971, "agency": "NASA", "region": "Fra Mauro" },
+  { "id": "apollo15", "name": "Apollo 15", "lat": 26.1322, "lon": 3.6339, "year": 1971, "agency": "NASA", "region": "Hadley–Apennine" },
+  { "id": "apollo16", "name": "Apollo 16", "lat": -8.9730, "lon": 15.5002, "year": 1972, "agency": "NASA", "region": "Descartes Highlands" },
+  { "id": "apollo17", "name": "Apollo 17", "lat": 20.1908, "lon": 30.7717, "year": 1972, "agency": "NASA", "region": "Taurus–Littrow" },
+  { "id": "luna9", "name": "Luna 9", "lat": 7.08, "lon": -64.37, "year": 1966, "agency": "USSR", "region": "Oceanus Procellarum" },
+  { "id": "luna17", "name": "Luna 17 / Lunokhod 1", "lat": 38.24, "lon": -35.00, "year": 1970, "agency": "USSR", "region": "Mare Imbrium" },
+  { "id": "change3", "name": "Chang'e 3", "lat": 44.12, "lon": -19.51, "year": 2013, "agency": "CNSA", "region": "Mare Imbrium" },
+  { "id": "change4", "name": "Chang'e 4", "lat": -45.44, "lon": 177.60, "year": 2019, "agency": "CNSA", "region": "Von Kármán (far side)" },
+  { "id": "change5", "name": "Chang'e 5", "lat": 43.06, "lon": -51.92, "year": 2020, "agency": "CNSA", "region": "Mons Rümker" },
+  { "id": "change6", "name": "Chang'e 6", "lat": -41.64, "lon": -153.99, "year": 2024, "agency": "CNSA", "region": "Apollo basin (far side)" },
+  { "id": "chandrayaan3", "name": "Chandrayaan-3", "lat": -69.37, "lon": 32.32, "year": 2023, "agency": "ISRO", "region": "Near the south pole" },
+  { "id": "slim", "name": "SLIM", "lat": -13.32, "lon": 25.25, "year": 2024, "agency": "JAXA", "region": "Shioli crater" },
+  { "id": "im1", "name": "IM-1 Odysseus", "lat": -80.13, "lon": 1.44, "year": 2024, "agency": "Intuitive Machines", "region": "Malapert A" },
+  { "id": "blueghost1", "name": "Blue Ghost M1", "lat": 18.56, "lon": 61.81, "year": 2025, "agency": "Firefly", "region": "Mare Crisium" },
+  { "id": "southpole", "name": "South Pole (Artemis reference point)", "lat": -89.9, "lon": 0.0, "year": null, "agency": "—", "region": "Shackleton region" }
+]
