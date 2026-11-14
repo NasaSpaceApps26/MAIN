@@ -1,4 +1,4 @@
-import { useQuery } from '@tanstack/react-query'
+import { keepPreviousData, useQuery } from '@tanstack/react-query'
 import { api } from './endpoints'
 import type { AnalysisParams, EphemerisParams, TrajectoryParams } from './types'
 
@@ -15,6 +15,20 @@ export const useEphemeris = (p: EphemerisParams | null) =>
     enabled: p !== null,
     staleTime: Infinity,
   })
+
+// One year of positions (+ the Moon's daily orbit), starting at `start` (YYYY-MM-DD).
+// keepPreviousData: while the next year downloads, keep showing the current one.
+export const useEphemerisYear = (start: string) =>
+  useQuery({
+    queryKey: ['ephemeris-year', start],
+    queryFn: () => api.ephemerisYear(start),
+    staleTime: Infinity,
+    placeholderData: keepPreviousData,
+  })
+
+// Planet orbits: the same for every period, loaded once
+export const useOrbits = () =>
+  useQuery({ queryKey: ['orbits'], queryFn: api.orbits, staleTime: Infinity })
 
 export const useLunarSites = () =>
   useQuery({ queryKey: ['sites', 'lunar'], queryFn: api.lunarSites, staleTime: Infinity })

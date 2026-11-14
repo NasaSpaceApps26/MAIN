@@ -48,3 +48,49 @@ export type AnalysisParams = { start: string; stop: string }
 export type TrajectoryPoint = { t_ms: number; x_km: number; y_km: number; z_km: number }
 export type Trajectory = { illustrative: boolean; method: string; points: TrajectoryPoint[] }
 export type TrajectoryParams = { departure: string; site: string; launch: string }
+
+// ---------- Solar system: positions for one year + orbits ----------
+
+// Position and velocity relative to the Sun at one moment (one per day)
+export type StateSample = {
+  t_ms: number
+  x_km: number
+  y_km: number
+  z_km: number
+  vx_km_s: number
+  vy_km_s: number
+  vz_km_s: number
+}
+
+// Orbital elements at one moment (names follow the Horizons table)
+export type OrbitalElements = {
+  t_ms: number
+  center: string // "500@10" = around the Sun, "500@399" = around Earth
+  ec: number
+  a_km: number
+  in_deg: number
+  om_deg: number
+  w_deg: number
+  ma_deg: number
+  ta_deg: number
+  pr_s: number
+}
+
+export type BodyEphemeris = {
+  body_id: string
+  samples: StateSample[]
+  daily_orbits: OrbitalElements[] | null // only the Moon; planet orbits come from /api/orbits
+}
+
+// GET /api/ephemeris/year
+export type EphemerisYear = {
+  start: string
+  stop: string
+  step: string
+  center: string
+  frame: string
+  bodies: Record<string, BodyEphemeris>
+}
+
+// GET /api/orbits: fixed planet orbits, by body id
+export type PlanetOrbits = Record<string, OrbitalElements>
