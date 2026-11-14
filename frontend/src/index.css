@@ -1,1 +1,33 @@
-html, body, #root { margin: 0; height: 100%; background: #000; overflow: hidden; }
+:root {
+  --space-black: #02040a;
+  --bar-top: #0b1e4a;
+  --bar-bottom: #061233;
+  --panel: rgba(4, 12, 34, 0.7);
+
+  --line: rgba(110, 170, 255, 0.25);
+  --accent: #5cc8ff;
+  --accent-soft: rgba(92, 200, 255, 0.12);
+  --glow: rgba(92, 200, 255, 0.55);
+
+  --text: #e6f1ff;
+  --text-dim: #8aa4c8;
+
+  --font-display: 'Orbitron', system-ui, sans-serif;
+  --font-mono: 'Share Tech Mono', ui-monospace, monospace;
+}
+
+html, body, #root {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  background: var(--space-black);
+  color: var(--text);
+}
+
+body {
+  font-family: var(--font-mono);
+}
+
+button {
+  font: inherit;
+}

@@ -1,12 +1,13 @@
 import { AppLayout } from './components/AppLayout/AppLayout'
-import { Hud } from './components/Hud/Hud'
+import { BackendStatus } from './components/BackendStatus/BackendStatus'
 import { SolarSystem } from './components/SolarSystem/SolarSystem'
+import { TopBar } from './components/TopBar/TopBar'
 
 export default function App() {
   return (
-    <AppLayout>
+    <AppLayout header={<TopBar />}>
+      <BackendStatus />
       <SolarSystem />
-      <Hud />
     </AppLayout>
   )
 }
