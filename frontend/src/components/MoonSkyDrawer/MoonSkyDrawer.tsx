@@ -78,7 +78,7 @@ export function MoonSkyDrawer() {
         })}
       </div>
       <div id="moon-sky-panel" role="tabpanel" className={styles.body} inert={!open}>
-        {mounted && <MoonSky view={shown} />}
+        {mounted && <MoonSky view={shown} active={open} />}
       </div>
     </aside>
   )
