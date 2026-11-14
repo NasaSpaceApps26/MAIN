@@ -1,11 +1,12 @@
 /** Towers, pads, tanks, buildings and other ground structures. */
-import { useMemo, useRef, type ReactNode } from 'react'
+import { useMemo, useRef, type ComponentRef, type ReactNode } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Line } from '@react-three/drei'
-import { AdditiveBlending, CanvasTexture, DoubleSide, Group, LatheGeometry, SRGBColorSpace, Vector2 } from 'three'
+import { CanvasTexture, Color, DoubleSide, Group, LatheGeometry, SRGBColorSpace, Vector2 } from 'three'
 import { Box, Boxes, Building, Cylinder, Instanced, Pipe, type Item } from './basics'
 import { COLORS } from './colors'
 import { MOUNT_H, type V3 } from './lib'
+import { nightMaterials, sky } from '../sky/skyState'
 
 export type Arm = { y: number; length: number; kind?: 'crew' | 'umbilical' }
 
@@ -165,9 +166,9 @@ export function LightningTower({ position = [0, 0, 0], height = 10 }: { position
         <Cylinder key={f} radius={0.18 - f * 0.1} height={0.08} position={[0, height * f, 0]} color={COLORS.steelDark} segments={8} />
       ))}
       <Cylinder radius={0.02} height={0.9} position={[0, height + 0.45, 0]} color={COLORS.dark} segments={4} />
-      <mesh position={[0, height + 0.05, 0]}>
+      {/* red aircraft warning light: blinks at night */}
+      <mesh position={[0, height + 0.05, 0]} material={nightMaterials().warning}>
         <sphereGeometry args={[0.07, 8, 8]} />
-        <meshStandardMaterial color="#ff3030" emissive="#ff2020" emissiveIntensity={2} />
       </mesh>
     </group>
   )
@@ -287,17 +288,40 @@ export function HorizontalTank({ position = [0, 0, 0], length = 3, radius = 0.45
 }
 
 /** Light pole with a lamp head pointing toward `face` (radians around Y). */
-export function FloodLight({ position = [0, 0, 0], height = 3.5, face = 0 }: { position?: V3; height?: number; face?: number }) {
+export function FloodLight({ position = [0, 0, 0], height = 3.5, face = 0, reach = 5 }: { position?: V3; height?: number; face?: number; reach?: number }) {
+  const night = nightMaterials()
+  // the lamp shines along -x (toward the pad), down onto a spot `reach` away
+  const lamp: V3 = [-0.25, height - 0.05, 0]
+  const dx = reach - 0.25
+  const len = Math.hypot(dx, height)
   return (
     <group position={position} rotation={[0, face, 0]}>
       <Cylinder radius={0.05} height={height} position={[0, height / 2, 0]} color={COLORS.steel} segments={6} />
       <Box size={[0.25, 0.35, 0.6]} position={[-0.1, height, 0]} rotation={[0, 0, 0.4]} color={COLORS.dark} />
-      <Box size={[0.02, 0.28, 0.5]} position={[-0.25, height - 0.05, 0]} rotation={[0, 0, 0.4]} color="#fff6d5" emissive="#ffe9a8" emissiveIntensity={1.2} />
+      <mesh position={lamp} rotation={[0, 0, 0.4]} material={night.lamp}>
+        <boxGeometry args={[0.02, 0.28, 0.5]} />
+      </mesh>
+      {/* at night: a faint beam and a bright patch on the ground (invisible by day) */}
+      <mesh position={[lamp[0] - dx / 2, height / 2, 0]} rotation={[0, 0, Math.atan2(-dx, height)]} material={night.beam}>
+        <coneGeometry args={[len * 0.32, len, 20, 1, true]} />
+      </mesh>
+      <mesh position={[-reach, 0.04, 0]} rotation={[-Math.PI / 2, 0, 0]} scale={[1.4, 1, 1]} material={night.pool}>
+        <circleGeometry args={[len * 0.42, 32]} />
+      </mesh>
     </group>
   )
 }
 
 /** Chain-link fence around a rectangle: posts and two wires. */
+const WIRE = new Color('#8a8c8e')
+
+/** Fence wire. Lines are not lit by the scene's lights, so it is darkened by hand at night. */
+function FenceWire({ points }: { points: V3[] }) {
+  const line = useRef<ComponentRef<typeof Line>>(null)
+  useFrame(() => line.current?.material.color.copy(WIRE).multiplyScalar(0.12 + 0.88 * sky.day))
+  return <Line ref={line} points={points} color="#8a8c8e" lineWidth={1} />
+}
+
 export function Fence({ rect, y = 0, height = 0.35, spacing = 0.9 }: { rect: [number, number, number, number]; y?: number; height?: number; spacing?: number }) {
   const [x0, z0, x1, z1] = rect
   const posts = useMemo(() => {
@@ -322,8 +346,8 @@ export function Fence({ rect, y = 0, height = 0.35, spacing = 0.9 }: { rect: [nu
   return (
     <>
       <Boxes items={posts} color="#9a9c9e" shadows={false} />
-      <Line points={loop(height * 0.95)} color="#8a8c8e" lineWidth={1} />
-      <Line points={loop(height * 0.5)} color="#8a8c8e" lineWidth={1} />
+      <FenceWire points={loop(height * 0.95)} />
+      <FenceWire points={loop(height * 0.5)} />
     </>
   )
 }
@@ -396,15 +420,22 @@ export function Hangar({ position = [0, 0, 0], size = [6, 2.5, 4], rotationY = 0
 /** Office block with bands of windows on every floor and roof units. */
 export function Office({ position = [0, 0, 0], size = [4, 2, 3], floors = 3, color = COLORS.offWhite, rotationY = 0 }: { position?: V3; size?: V3; floors?: number; color?: string; rotationY?: number }) {
   const [w, h, d] = size
+  // window bands, one per floor and face; about two in three light up at night
   const windows = useMemo(() => {
-    const items: Item[] = []
+    const lit: Item[] = []
+    const dark: Item[] = []
     for (let f = 0; f < floors; f++) {
       const y = ((f + 0.55) * h) / floors
       const bh = (h / floors) * 0.42
-      items.push({ p: [0, y, d / 2 + 0.01], s: [w * 0.92, bh, 0.03] }, { p: [0, y, -d / 2 - 0.01], s: [w * 0.92, bh, 0.03] })
-      items.push({ p: [w / 2 + 0.01, y, 0], s: [0.03, bh, d * 0.9] }, { p: [-w / 2 - 0.01, y, 0], s: [0.03, bh, d * 0.9] })
+      const bands: Item[] = [
+        { p: [0, y, d / 2 + 0.01], s: [w * 0.92, bh, 0.03] },
+        { p: [0, y, -d / 2 - 0.01], s: [w * 0.92, bh, 0.03] },
+        { p: [w / 2 + 0.01, y, 0], s: [0.03, bh, d * 0.9] },
+        { p: [-w / 2 - 0.01, y, 0], s: [0.03, bh, d * 0.9] },
+      ]
+      bands.forEach((b, i) => ((f * 4 + i) % 3 === 2 ? dark : lit).push(b))
     }
-    return items
+    return { lit, dark }
   }, [w, h, d, floors])
   const roof = useMemo<Item[]>(
     () => [
@@ -416,7 +447,8 @@ export function Office({ position = [0, 0, 0], size = [4, 2, 3], floors = 3, col
   return (
     <group position={position} rotation={[0, rotationY, 0]}>
       <Building size={size} color={color} />
-      <Boxes items={windows} color={COLORS.glass} roughness={0.2} metalness={0.4} shadows={false} />
+      <Boxes items={windows.lit} color="#ffffff" shadows={false} material={nightMaterials().window} />
+      <Boxes items={windows.dark} color={COLORS.glass} roughness={0.2} metalness={0.4} shadows={false} />
       <Boxes items={roof} color="#a9aaa6" />
     </group>
   )
@@ -509,9 +541,8 @@ export function Lighthouse({ position = [0, 0, 0] }: { position?: V3 }) {
         <meshStandardMaterial color={COLORS.dark} />
       </mesh>
       <group ref={beam} position={[0, top + 0.33, 0]}>
-        <mesh position={[3, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
+        <mesh position={[3, 0, 0]} rotation={[0, 0, Math.PI / 2]} material={nightMaterials().lighthouseBeam}>
           <coneGeometry args={[0.5, 6, 16, 1, true]} />
-          <meshBasicMaterial color="#fff2c0" transparent opacity={0.18} blending={AdditiveBlending} depthWrite={false} side={DoubleSide} />
         </mesh>
       </group>
       {/* keeper's house */}

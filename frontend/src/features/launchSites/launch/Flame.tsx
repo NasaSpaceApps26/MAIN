@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { AdditiveBlending, ConeGeometry, Group, SphereGeometry } from 'three'
-import type { V3 } from '../models/lib'
+import { AdditiveBlending, ConeGeometry, Fog, Group, SphereGeometry, Vector3 } from 'three'
+import { smoothstep, type V3 } from '../models/lib'
 import { FLAME_LOOK, type Burn, type FlameKind } from './flameLook'
 
 /** Unit cone hanging down: base (the nozzle exit) at y = 0, tip at y = -1. */
@@ -9,6 +9,7 @@ const coneGeometry = new ConeGeometry(1, 1, 18, 1, true)
 coneGeometry.rotateX(Math.PI)
 coneGeometry.translate(0, -0.5, 0)
 const glowGeometry = new SphereGeometry(1, 16, 10)
+const at = new Vector3()
 
 /**
  * Rocket exhaust: three nested glowing cones and a glow at the nozzle, flickering.
@@ -28,10 +29,15 @@ export function Flame({
   const group = useRef<Group>(null)
   const core = useRef<Group>(null)
   const look = FLAME_LOOK[kind]
-  useFrame(({ clock }) => {
+  useFrame(({ clock, camera, scene }) => {
     const g = group.current
     if (!g) return
-    const k = burn.throttle
+    // the glowing flame ignores fog, so fade it out by hand as the rocket recedes into the haze
+    const fog = scene.fog as Fog | null
+    const haze = fog
+      ? smoothstep(fog.near, fog.far, camera.position.distanceTo(g.getWorldPosition(at)))
+      : 0
+    const k = burn.throttle * (1 - haze)
     g.visible = k > 0.01
     if (!g.visible) return
     const t = clock.elapsedTime

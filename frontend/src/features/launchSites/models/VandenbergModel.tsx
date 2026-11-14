@@ -5,7 +5,9 @@ import { COLORS } from './colors'
 import { MOUNT_H, rng, smoothstep, type V3 } from './lib'
 import { Atmosphere, Clouds, Ocean, Rocks, Terrain, Trees } from './nature'
 import { Dish, Fence, Flag, FloodLight, Hangar, HorizontalTank, LatticeTower, LightningRing, LightningTower, Office, Pad, RadarDome, Ribs, Shed, SphereTank, WaterTower } from './structures'
-import { LandedBooster, ParkingLot, Rocket } from './vehicles'
+import { LandedBooster, ParkingLot } from './vehicles'
+import { SaturnVOnPad } from '../launch/SaturnVOnPad'
+import { PROFILES } from '../launch/profiles'
 
 // x = east, -x = the Pacific, -z = north
 const PAD_H = 1.5 // height of the flattened pad areas
@@ -159,8 +161,8 @@ function Slc4e() {
   return (
     <group position={SLC4E}>
       <Pad radius={3.4} rotationY={Math.PI}>
-        <Rocket position={[0, MOUNT_H, 0]} height={8} radius={0.28} engines={9} gridFins legs fairingRadius={0.38} />
-        <LatticeTower position={[-0.72, 0.3, 0]} height={7.4} width={0.5} color="#3f4349" crane={false} floorsEvery={4} elevator={false} />
+        <SaturnVOnPad pad="slc4e" profile={PROFILES.saturnVPolar} position={[0, MOUNT_H, 0]} />
+        <LatticeTower position={[-0.9, 0.3, 0]} height={7.4} width={0.5} color="#3f4349" crane={false} floorsEvery={4} elevator={false} />
       </Pad>
       <LightningRing center={[0, 0, 0]} radius={5.4} height={11} />
       <Hangar position={[8.5, 0, 0]} size={[7, 3, 5]} rotationY={Math.PI} />
@@ -204,7 +206,7 @@ function Slc6() {
   return (
     <group position={SLC6}>
       <Pad radius={3.8} rotationY={Math.PI}>
-        <Rocket position={[0, MOUNT_H, 0]} height={8} radius={0.4} engines={1} boosters={4} boosterRadius={0.16} boosterHeight={0.32} fairingRadius={0.5} color="#e9e6dc" />
+        <SaturnVOnPad pad="slc6" profile={PROFILES.saturnVPolar} position={[0, MOUNT_H, 0]} />
         <LatticeTower position={[-2.6, 0, 0]} height={8.5} width={1.3} color="#7d838a" rotationY={Math.PI} arms={[{ y: 6.8, length: 1.4 }, { y: 4, length: 1.4 }]} />
       </Pad>
       <group position={[3.4, 0.15, 0]}>

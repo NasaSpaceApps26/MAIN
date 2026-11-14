@@ -4,7 +4,7 @@
  */
 import { useMemo, type ReactNode } from 'react'
 import { Instance, Instances } from '@react-three/drei'
-import { Quaternion, Vector3 } from 'three'
+import { Quaternion, Vector3, type Material } from 'three'
 import { COLORS } from './colors'
 import type { V3 } from './lib'
 
@@ -97,6 +97,7 @@ export function Instanced({
   shadows = true,
   emissive,
   emissiveIntensity,
+  material,
 }: {
   items: Item[]
   color?: string
@@ -107,12 +108,13 @@ export function Instanced({
   shadows?: boolean
   emissive?: string
   emissiveIntensity?: number
+  material?: Material // shared material instead of a new one (its colour is still tinted per item)
 }) {
   if (items.length === 0) return null
   return (
-    <Instances limit={items.length} castShadow={shadows} receiveShadow frustumCulled={false}>
+    <Instances limit={items.length} castShadow={shadows} receiveShadow frustumCulled={false} material={material}>
       {children}
-      <meshStandardMaterial roughness={roughness} metalness={metalness} flatShading={flatShading} emissive={emissive} emissiveIntensity={emissiveIntensity} />
+      {!material && <meshStandardMaterial roughness={roughness} metalness={metalness} flatShading={flatShading} emissive={emissive} emissiveIntensity={emissiveIntensity} />}
       {items.map((it, i) => (
         <Instance key={i} position={it.p} rotation={it.r} scale={it.s ?? 1} color={it.c ?? color} />
       ))}
@@ -121,9 +123,9 @@ export function Instanced({
 }
 
 /** Unit box instances (the most common case). */
-export function Boxes({ items, color, roughness, metalness, shadows }: { items: Item[]; color?: string; roughness?: number; metalness?: number; shadows?: boolean }) {
+export function Boxes({ items, color, roughness, metalness, shadows, material }: { items: Item[]; color?: string; roughness?: number; metalness?: number; shadows?: boolean; material?: Material }) {
   return (
-    <Instanced items={items} color={color} roughness={roughness} metalness={metalness} shadows={shadows}>
+    <Instanced items={items} color={color} roughness={roughness} metalness={metalness} shadows={shadows} material={material}>
       <boxGeometry />
     </Instanced>
   )

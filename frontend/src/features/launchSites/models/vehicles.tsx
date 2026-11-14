@@ -1,10 +1,20 @@
 /** Rockets, the crawler-transporter, an airplane and parked cars. */
-import { useMemo, type ReactNode } from 'react'
-import { DoubleSide, LatheGeometry, Vector2 } from 'three'
+import { useMemo, useRef, type ReactNode } from 'react'
+import { DoubleSide, LatheGeometry, Vector2, type Group, type Mesh, type MeshStandardMaterial, type Object3D } from 'three'
 import { Box, Boxes, Building, Cylinder, Instanced, type Item } from './basics'
 import { CAR_COLORS, COLORS } from './colors'
 import { pick, rng, rocketDims, SATURN_V, type V3 } from './lib'
 import { LatticeTower, type Arm } from './structures'
+import { useFrame } from '@react-three/fiber'
+import { sky } from '../sky/skyState'
+
+/** Makes a mesh glow in its own colour, as if lit by searchlights; strength 0 = off. */
+function floodlit(o: Object3D, strength: number) {
+  const m = (o as Mesh).material as MeshStandardMaterial | undefined
+  if (!m?.isMeshStandardMaterial) return
+  m.emissive.copy(m.color)
+  m.emissiveIntensity = strength
+}
 
 /** Ogive (pointed arch) nose: straight for `straight` of its height, then curving to a tip. */
 function useNoseGeometry(radius: number, height: number, straight = 0.4) {
@@ -239,8 +249,11 @@ export function SaturnV({ position = [0, 0, 0], rotation, part = 'all' }: Rocket
   const lower = part === 'all' || part === 'stage1'
   const upper = part === 'all' || part === 'upper'
   const corners = [0, 1, 2, 3].map((i) => Math.PI / 4 + (i * Math.PI) / 2)
+  const group = useRef<Group>(null)
+  // at night the pad searchlights wash it in white light: its own colours glow a little
+  useFrame(() => group.current?.traverse((o) => floodlit(o, sky.night * 0.3)))
   return (
-    <group position={position} rotation={rotation}>
+    <group ref={group} position={position} rotation={rotation}>
       {lower && (
         <>
           {/* five F-1 engines: one in the middle, four around it */}

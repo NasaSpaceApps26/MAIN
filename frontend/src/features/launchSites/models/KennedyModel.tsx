@@ -4,8 +4,8 @@ import { COLORS } from './colors'
 import { around, SATURN_V, scatter, type Rect } from './lib'
 import { Atmosphere, Clouds, Ocean, Surf, Trees } from './nature'
 import { Fence, Flag, FloodLight, LightningRing, Mound, Office, Pad, Ribs, Shed, SphereTank, WaterTower } from './structures'
-import { Crawler, MobileLauncher, ParkingLot, Rocket, SaturnV } from './vehicles'
-import { LaunchableRocket } from '../launch/LaunchableRocket'
+import { Crawler, MobileLauncher, ParkingLot } from './vehicles'
+import { SaturnVOnPad } from '../launch/SaturnVOnPad'
 import { PROFILES } from '../launch/profiles'
 
 // x = east (toward the Atlantic), -z = north
@@ -18,6 +18,12 @@ const CRAWLER_A: [number, number][] = [
   [VAB_X + 8, 0],
   [2, 0],
   [17.5, -11.5],
+]
+/** Service road from the main road to the south side of pad 39A (crossing no crawlerway). */
+const ACCESS_ROAD: [number, number][] = [
+  [4, 18],
+  [15, -1],
+  [21, -7.6],
 ]
 const CRAWLER_B: [number, number][] = [
   [2, 0],
@@ -83,9 +89,33 @@ function VehicleAssemblyBuilding() {
 }
 
 /**
- * Launch Complex 39A as in the Apollo years: a Saturn V on its mobile launcher with the red launch
- * umbilical tower and its swing arms (the crew access arm at the command module), tanks, lights.
+ * Saturn V on its mobile launcher with the red launch umbilical tower and its swing arms (the crew
+ * access arm at the command module), as at Launch Complex 39 in the Apollo years.
  */
+function SaturnStack({ pad }: { pad: string }) {
+  // arms reach from the tower's inner face (1.45 from the rocket's axis) to the rocket's skin
+  const toSkin = (r: number) => 1.45 - r
+  return (
+    <MobileLauncher
+      towerHeight={12.2}
+      towerColor={COLORS.tower}
+      arms={[
+        { y: 1.6, length: toSkin(SATURN_V.radius) },
+        { y: 3.3, length: toSkin(SATURN_V.radius) },
+        { y: 4.4, length: toSkin(SATURN_V.radius) },
+        { y: 5.6, length: toSkin(SATURN_V.radius) },
+        { y: 6.5, length: toSkin(SATURN_V.radius) },
+        { y: 7.6, length: toSkin(SATURN_V.upperRadius) },
+        { y: 8.5, length: toSkin(SATURN_V.upperRadius) },
+        { y: 10, length: toSkin(0.12), kind: 'crew' },
+      ]}
+    >
+      <SaturnVOnPad pad={pad} profile={PROFILES.saturnV} />
+    </MobileLauncher>
+  )
+}
+
+/** Launch Complex 39A: Saturn V on its mobile launcher, tanks, water tower, lights. */
 function PadA() {
   const [x, z] = PAD_A
   const lights: [number, number][] = [
@@ -95,8 +125,6 @@ function PadA() {
     [-3.3, -3.3],
   ]
   const pedestals = [-1.8, 0, 1.8].flatMap((px) => [-1.6, 1.6].map((pz) => [px, pz] as const))
-  // arms reach from the tower's inner face (1.45 from the rocket's axis) to the rocket's skin
-  const toSkin = (r: number) => 1.45 - r
   return (
     <>
       <Mound position={[x, 0, z]} radius={6.5}>
@@ -105,22 +133,7 @@ function PadA() {
             <Box key={`${px}${pz}`} size={[0.4, 0.3, 0.4]} position={[px, 0.15, pz]} color={COLORS.concreteDark} />
           ))}
           <group position={[0, 0.3, 0]}>
-            <MobileLauncher
-              towerHeight={12.2}
-              towerColor={COLORS.tower}
-              arms={[
-                { y: 1.6, length: toSkin(SATURN_V.radius) },
-                { y: 3.3, length: toSkin(SATURN_V.radius) },
-                { y: 4.4, length: toSkin(SATURN_V.radius) },
-                { y: 5.6, length: toSkin(SATURN_V.radius) },
-                { y: 6.5, length: toSkin(SATURN_V.radius) },
-                { y: 7.6, length: toSkin(SATURN_V.upperRadius) },
-                { y: 8.5, length: toSkin(SATURN_V.upperRadius) },
-                { y: 10, length: toSkin(0.12), kind: 'crew' },
-              ]}
-            >
-              <LaunchableRocket pad="39a" profile={PROFILES.saturnV} vehicle={SaturnV} height={SATURN_V.height} radius={SATURN_V.radius} engines={SATURN_V.engines} />
-            </MobileLauncher>
+            <SaturnStack pad="39a" />
           </group>
         </Pad>
         {lights.map(([lx, lz]) => (
@@ -134,12 +147,11 @@ function PadA() {
       <WaterTower position={[x + 8, 0, z - 8]} height={6.5} radius={1.2} />
       <Shed position={[x - 9, 0, z + 5]} />
       <Fence rect={[x - 11, z - 11, x + 11, z + 11]} />
-      <Road from={[x - 11, z + 9]} to={[x - 4, z + 4]} width={0.9} />
     </>
   )
 }
 
-/** Launch Complex 39B: mobile launcher with a heavy-lift rocket, three lightning towers. */
+/** Launch Complex 39B: a second Saturn V on its mobile launcher, three lightning towers. */
 function PadB() {
   const [x, z] = PAD_B
   const pedestals = [-1.8, 0, 1.8].flatMap((px) => [-1.6, 1.6].map((pz) => [px, pz] as const))
@@ -151,27 +163,7 @@ function PadB() {
             <Box key={`${px}${pz}`} size={[0.4, 0.3, 0.4]} position={[px, 0.15, pz]} color={COLORS.concreteDark} />
           ))}
           <group position={[0, 0.3, 0]}>
-            <MobileLauncher
-              towerHeight={12.5}
-              arms={[
-                { y: 8.4, length: 1.05, kind: 'crew' },
-                { y: 6, length: 1.05 },
-                { y: 3.4, length: 1.05 },
-              ]}
-            >
-              <Rocket
-                rotation={[0, Math.PI / 2, 0]}
-                height={9.8}
-                radius={0.42}
-                color="#d9772f"
-                accent="#c8692a"
-                engines={4}
-                boosters={2}
-                boosterRadius={0.2}
-                boosterHeight={0.56}
-                capsule
-              />
-            </MobileLauncher>
+            <SaturnStack pad="39b" />
           </group>
         </Pad>
       </Mound>
@@ -192,8 +184,12 @@ const TREE_EXCLUDE: Rect[] = [
   [-140, 16.8, 40, 19.2], // main road
   [-91.5, -90, -88.5, 90], // parkway
   [VAB_X + 7, -2.5, 4, 2.5], // crawlerway
-  around(10, -6, 4),
-  around(15, -10, 4),
+  around(15, -10, 4), // shed by the crawlerway
+  around(6, 14, 2.5), // access road to 39A
+  around(9, 9, 2.5),
+  around(11.5, 5, 2.5),
+  around(14, 0.5, 2.5),
+  around(17.5, -4, 2.5),
   [0, -36, 7.5, 0], // crawlerway to 39B
   [9, -27, 35, -1], // pad 39A
   [-8, -54, 20, -27], // pad 39B
@@ -236,7 +232,8 @@ export function KennedyModel() {
       <Road from={[-90, -100]} to={[-90, 100]} width={1.6} dashes edges />
       <Road from={[LCC_X - 1, 18]} to={[LCC_X - 1, 13]} width={0.8} />
       <Road from={[VAB_X - 8, 18]} to={[VAB_X - 8, 14]} width={0.8} />
-      <Road from={[4, 18]} to={[13, -2]} width={0.9} />
+      {/* access road to pad 39A: through the fence to the edge of the pad, clear of the crawlerway */}
+      <RoadPath points={ACCESS_ROAD} width={0.9} />
 
       <VehicleAssemblyBuilding />
 

@@ -27,9 +27,9 @@ function Table({ title, cls, windows, at, onSeek }) {
 export default function Windows({ a, onSeek }) {
   return (
     <div className="windows">
-      <Table title="☀️ Daylight (Sun)" cls="sun" windows={a.sun.windows} at={a.at} onSeek={onSeek} />
-      <Table title="🌍 Earth above horizon" cls="earth" windows={a.earth.windows} at={a.at} onSeek={onSeek} />
-      <Table title="✅ Sun + Earth" cls="both" windows={a.both.windows} at={a.at} onSeek={onSeek} />
+      <Table title="Sun visibility" cls="sun" windows={a.sun.windows} at={a.at} onSeek={onSeek} />
+      <Table title="Earth visibility" cls="earth" windows={a.earth.windows} at={a.at} onSeek={onSeek} />
+      <Table title="Shared visibility" cls="both" windows={a.both.windows} at={a.at} onSeek={onSeek} />
     </div>
   );
 }

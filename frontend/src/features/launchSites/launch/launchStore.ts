@@ -23,7 +23,7 @@ export const useLaunchStore = create<LaunchState>()((set) => ({
   phase: 'idle',
   clock: 0,
   event: '',
-  follow: true,
+  follow: false, // off by default: the camera stays where the user put it during a launch
   launch: (padId) =>
     set((s) => ({ padId, run: s.run + 1, phase: 'countdown', clock: 0, event: '' })),
   reset: () => set({ padId: null, phase: 'idle', clock: 0, event: '' }),
@@ -44,4 +44,6 @@ export const tracker = {
   height: 8, // rocket height, for framing
   shake: 0, // 0..1, ground shake near the pad
   cut: false, // the launch animation ended: cut straight back to the overview instead of flying back
+  light: { intensity: 0, position: new Vector3() }, // glow of the flames, shown by LaunchLight
+  elapsed: 0, // seconds since the countdown began; stops when the rocket is out of sight (drives the sky clock)
 }

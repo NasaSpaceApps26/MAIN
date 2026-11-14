@@ -3,14 +3,18 @@ import { nowUtcInput } from '../format.js';
 
 const STEP_MIN = { '10m': 10, '30m': 30, '1h': 60 };
 
-export default function Controls({ p, onChange }) {
+/**
+ * Landing settings form. `children` (the Moon map and site list) come first, then the coordinates,
+ * the time settings, and the Apply button at the very end. Typed coordinates only take effect on
+ * Apply; the map, the site list and the time settings apply as soon as they change. Apply then
+ * calls `onApply` (show the results).
+ */
+export default function Controls({ p, onChange, onApply, children }) {
   const [draft, setDraft] = useState({ lat: p.lat, lon: p.lon, alt: p.alt });
   const [err, setErr] = useState(null);
 
   // when the location changes from outside (map, list) – refresh the fields
   useEffect(() => { setDraft({ lat: p.lat, lon: p.lon, alt: p.alt }); setErr(null); }, [p.lat, p.lon, p.alt]);
-
-  const dirty = +draft.lat !== p.lat || +draft.lon !== p.lon || +draft.alt !== p.alt;
 
   const submit = (e) => {
     e.preventDefault();
@@ -19,24 +23,25 @@ export default function Controls({ p, onChange }) {
     if (draft.lon === '' || !(lon >= -180 && lon <= 180)) return setErr('Longitude must be between −180 and 180°');
     if (!Number.isFinite(alt) || alt < -10 || alt > 20) return setErr('Altitude must be between −10 and 20 km');
     setErr(null);
-    onChange({ lat, lon, alt });
+    if (lat !== p.lat || lon !== p.lon || alt !== p.alt) onChange({ lat, lon, alt });
+    onApply?.();
   };
 
   const field = (k) => ({
     value: draft[k],
-    onChange: (e) => setDraft({ ...draft, [k]: e.target.value }),
+    onChange: (e) => { setDraft({ ...draft, [k]: e.target.value }); setErr(null); },
   });
 
   return (
     <form className="controls" onSubmit={submit}>
+      {children}
+
       <div className="row3">
         <label>Latitude [°]<input type="number" step="any" {...field('lat')} /></label>
         <label>Longitude [°]<input type="number" step="any" {...field('lon')} /></label>
         <label>Altitude [km]<input type="number" step="any" {...field('alt')} /></label>
       </div>
       <p className="hint">Latitude: + north. Longitude: + east, − west.</p>
-      {err && <p className="field-error">{err}</p>}
-      <button type="submit" disabled={!dirty}>Apply location</button>
 
       <hr />
 
@@ -51,7 +56,7 @@ export default function Controls({ p, onChange }) {
 
       <div className="row2">
         <label>
-          Range length
+          Time interval
           <select value={p.days} onChange={(e) => onChange({ days: +e.target.value })}>
             {[1, 3, 7, 14, 30, 60].map((d) => <option key={d} value={d}>{d} {d === 1 ? 'day' : 'days'}</option>)}
           </select>
@@ -82,6 +87,9 @@ export default function Controls({ p, onChange }) {
         )}
       </div>
       {p.mode === 'custom' && <p className="hint">E.g. 5° – a rough terrain or antenna mask.</p>}
+
+      {err && <p className="field-error">{err}</p>}
+      <button type="submit">Apply</button>
     </form>
   );
 }

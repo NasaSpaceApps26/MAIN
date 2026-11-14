@@ -31,10 +31,13 @@ export const LAUNCH_SITES: readonly LaunchSite[] = [
       'Launch Control Center',
       'Crawlerway with a crawler-transporter and mobile launcher',
       'LC-39A with a Saturn V on its mobile launcher and red launch umbilical tower',
-      'LC-39B with a heavy-lift rocket, lightning towers and water tower',
+      'LC-39B with a second Saturn V, lightning towers and water tower',
       'Turning basin',
     ],
-    pads: [{ id: '39a', name: 'LC-39A', rocket: 'Saturn V, as on the Apollo Moon missions' }],
+    pads: [
+      { id: '39a', name: 'LC-39A', rocket: 'Saturn V' },
+      { id: '39b', name: 'LC-39B', rocket: 'Saturn V' },
+    ],
   },
   {
     id: 'ccsfs',
@@ -49,7 +52,11 @@ export const LAUNCH_SITES: readonly LaunchSite[] = [
       'SLC-37 with its mobile service tower',
       'Cape Canaveral Lighthouse',
     ],
-    pads: [],
+    pads: [
+      { id: 'slc41', name: 'SLC-41', rocket: 'Saturn V' },
+      { id: 'slc40', name: 'SLC-40', rocket: 'Saturn V' },
+      { id: 'slc37', name: 'SLC-37', rocket: 'Saturn V' },
+    ],
   },
   {
     id: 'vandenberg',
@@ -64,7 +71,10 @@ export const LAUNCH_SITES: readonly LaunchSite[] = [
       'Landing Zone 4',
       'SLC-6 with its mobile service tower',
     ],
-    pads: [],
+    pads: [
+      { id: 'slc4e', name: 'SLC-4E', rocket: 'Saturn V' },
+      { id: 'slc6', name: 'SLC-6', rocket: 'Saturn V' },
+    ],
   },
   {
     id: 'wallops',
@@ -80,7 +90,11 @@ export const LAUNCH_SITES: readonly LaunchSite[] = [
       'Rail launchers for sounding rockets',
       'Radar domes, causeway and the main base runway',
     ],
-    pads: [],
+    pads: [
+      { id: '0a', name: 'Pad 0A', rocket: 'Saturn V' },
+      { id: '0b', name: 'Pad 0B', rocket: 'Saturn V' },
+      { id: 'lc2', name: 'Launch Complex 2', rocket: 'Saturn V' },
+    ],
   },
 ]
 

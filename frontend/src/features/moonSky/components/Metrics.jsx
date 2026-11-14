@@ -32,15 +32,15 @@ export default function Metrics({ a }) {
   const nextBoth = a.both.windows.find((w) => w.start > a.at);
   return (
     <div className="metrics">
-      <BodyCard name="☀️ Sun" cls="sun" b={a.sun} />
-      <BodyCard name="🌍 Earth" cls="earth" b={a.earth} />
+      <BodyCard name="Sun" cls="sun" b={a.sun} />
+      <BodyCard name="Earth" cls="earth" b={a.earth} />
       <div className={`metric both ${a.both.isUp ? 'ok' : 'warn'}`}>
         <h3>Power + communications</h3>
         {a.both.isUp ? (
-          <p>✅ Sun and Earth visible at the same time.
+          <p>Sun and Earth visible at the same time.
             <br />Ends in: <b>{a.both.minutesToEnd != null ? formatDuration(a.both.minutesToEnd) : 'after end of range'}</b></p>
         ) : (
-          <p>⚠️ Missing {!a.sun.isUp && !a.earth.isUp ? 'Sun and Earth' : !a.sun.isUp ? 'Sun (no power)' : 'Earth (no communications)'}.
+          <p>Missing {!a.sun.isUp && !a.earth.isUp ? 'Sun and Earth' : !a.sun.isUp ? 'Sun (no power)' : 'Earth (no communications)'}.
             <br />Next shared window: <b>{nextBoth ? `in ${formatDuration(Math.round((nextBoth.start - a.at) / 60_000))}` : 'none in range'}</b></p>
         )}
       </div>

@@ -4,7 +4,9 @@ import { COLORS } from './colors'
 import { around, MOUNT_H, scatter, type Rect, type V3 } from './lib'
 import { Atmosphere, Clouds, Ocean, Surf, Trees } from './nature'
 import { Fence, FloodLight, Hangar, HorizontalTank, LatticeTower, Lighthouse, LightningRing, LightningTower, Office, Pad, Ribs, Shed, SphereTank, WaterTower } from './structures'
-import { Airplane, ParkingLot, Rocket } from './vehicles'
+import { Airplane, ParkingLot } from './vehicles'
+import { SaturnVOnPad } from '../launch/SaturnVOnPad'
+import { PROFILES } from '../launch/profiles'
 
 // x = east (toward the Atlantic), -z = north
 const SLC41: V3 = [12, 0, -24]
@@ -40,7 +42,7 @@ function Slc41() {
         {/* mobile launch platform with a short umbilical mast */}
         <Building size={[3.2, 0.6, 3]} position={[0, 0, 0]} color="#7a8088" />
         <LatticeTower position={[-1.2, 0.6, -1.1]} height={2.5} width={0.6} color="#6f757d" crane={false} floorsEvery={2} elevator={false} />
-        <Rocket position={[0, 0.6, 0]} height={8.4} radius={0.34} color="#c98d56" accent="#2b2b2b" fairingRadius={0.46} engines={2} boosters={2} boosterRadius={0.14} boosterHeight={0.3} boosterColor={COLORS.offWhite} />
+        <SaturnVOnPad pad="slc41" profile={PROFILES.saturnV} position={[0, 0.6, 0]} />
         <LatticeTower position={[2.4, 0, 0]} height={9.5} width={1.5} color="#7d838a" arms={[{ y: 7.7, length: 1.15, kind: 'crew' }]} />
       </Pad>
       <LightningRing center={SLC41} radius={5.2} height={11.5} />
@@ -63,9 +65,9 @@ function Slc40() {
       ))}
       <Road from={[-6, z]} to={[x - 3, z]} width={2} color={COLORS.concrete} y={0.018} />
       <Pad position={SLC40} radius={3.3} rotationY={Math.PI}>
-        <Rocket position={[0, MOUNT_H, 0]} height={8} radius={0.28} engines={9} gridFins legs capsule />
-        <LatticeTower position={[-0.75, 0.3, 0]} height={7.6} width={0.5} color="#3f4349" crane={false} floorsEvery={4} elevator={false} />
-        <LatticeTower position={[2.2, 0, 0]} height={9} width={1.4} color="#8a9096" arms={[{ y: 7.25, length: 1.2, kind: 'crew' }]} mast={2} />
+        <SaturnVOnPad pad="slc40" profile={PROFILES.saturnV} position={[0, MOUNT_H, 0]} />
+        <LatticeTower position={[-0.9, 0.3, 0]} height={7.6} width={0.5} color="#3f4349" crane={false} floorsEvery={4} elevator={false} />
+        <LatticeTower position={[2.2, 0, 0]} height={9} width={1.4} color="#8a9096" arms={[{ y: 7.25, length: 1, kind: 'crew' }]} mast={2} />
       </Pad>
       <LightningRing center={SLC40} radius={5.4} height={12} />
       <SphereTank position={[x - 7, 0, z + 7]} radius={1.1} />
@@ -90,8 +92,8 @@ function Slc37() {
   return (
     <>
       <Pad position={SLC37} radius={3.6} rotationY={Math.PI}>
-        <Rocket position={[0, MOUNT_H, 0]} rotation={[0, Math.PI / 2, 0]} height={8.6} radius={0.32} color="#d9772f" accent="#2b2b2b" fairingRadius={0.38} boosters={2} boosterRadius={0.32} boosterHeight={0.74} boosterColor="#d9772f" />
-        <LatticeTower position={[-1.9, 0, 0]} height={8} width={1.2} color="#7d838a" rotationY={Math.PI} arms={[{ y: 6.2, length: 1 }, { y: 3.5, length: 1 }]} />
+        <SaturnVOnPad pad="slc37" profile={PROFILES.saturnV} position={[0, MOUNT_H, 0]} lights={[70, 110, -20, -160]} />
+        <LatticeTower position={[-1.9, 0, 0]} height={8} width={1.2} color="#7d838a" rotationY={Math.PI} arms={[{ y: 6.2, length: 0.8 }, { y: 3.5, length: 0.8 }]} />
       </Pad>
       {/* mobile service tower, rolled back from the rocket */}
       <group position={[x, 0, z + 5.5]}>

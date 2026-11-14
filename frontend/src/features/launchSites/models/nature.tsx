@@ -1,42 +1,98 @@
 /** Sky, clouds, ocean, terrain, trees and rocks. */
 import { useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { BackSide, Color, Float32BufferAttribute, Group, Mesh, MeshStandardMaterial, PlaneGeometry, SphereGeometry } from 'three'
+import { BackSide, Color, Float32BufferAttribute, Group, Mesh, MeshStandardMaterial, PlaneGeometry, PointsMaterial, ShaderMaterial } from 'three'
 import { Instanced, type Item } from './basics'
 import { COLORS, LEAF_GREENS, SCRUB_GREENS } from './colors'
 import { pick, rng, smoothstep, type V3 } from './lib'
+import { sky, skyColors } from '../sky/skyState'
 
-/** Sky dome: haze colour at the horizon (same as the fog, so the far ground melts into it), blue overhead. */
-function SkyDome({ zenith, horizon }: { zenith: string; horizon: string }) {
-  const geometry = useMemo(() => {
-    const g = new SphereGeometry(1000, 32, 16)
-    const pos = g.attributes.position
-    const colors = new Float32Array(pos.count * 3)
-    const top = new Color(zenith)
-    const bottom = new Color(horizon)
-    const c = new Color()
-    for (let i = 0; i < pos.count; i++) {
-      const up = Math.max(0, pos.getY(i) / 1000)
-      c.copy(bottom).lerp(top, Math.pow(up, 0.45))
-      colors.set([c.r, c.g, c.b], i * 3)
+const skyVertex = /* glsl */ `
+  varying vec3 vDir;
+  void main() {
+    vDir = normalize(position);
+    gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+  }
+`
+const skyFragment = /* glsl */ `
+  uniform vec3 zenith;
+  uniform vec3 horizon;
+  uniform vec3 sunDir;
+  uniform vec3 glowColor;
+  uniform float glow;
+  varying vec3 vDir;
+  void main() {
+    vec3 dir = normalize(vDir);
+    vec3 col = mix(horizon, zenith, pow(max(dir.y, 0.0), 0.45));
+    // light around the Sun: a wide glow at sunrise / sunset, a tight halo by day
+    float d = max(dot(dir, sunDir), 0.0);
+    col += glowColor * glow * (pow(d, 6.0) * 0.45 + pow(d, 64.0) * 0.5);
+    gl_FragColor = vec4(col, 1.0);
+    #include <colorspace_fragment>
+  }
+`
+
+/** Stars at random points of the upper sky, fading in as it gets dark. */
+function useStarPositions(count: number) {
+  return useMemo(() => {
+    const rand = rng(99)
+    const pos = new Float32Array(count * 3)
+    for (let i = 0; i < count; i++) {
+      const az = rand() * Math.PI * 2
+      const el = Math.asin(0.03 + rand() * 0.97)
+      pos.set([Math.cos(el) * Math.sin(az) * 950, Math.sin(el) * 950, -Math.cos(el) * Math.cos(az) * 950], i * 3)
     }
-    g.setAttribute('color', new Float32BufferAttribute(colors, 3))
-    return g
-  }, [zenith, horizon])
-  return (
-    <mesh geometry={geometry} renderOrder={-1}>
-      <meshBasicMaterial vertexColors side={BackSide} fog={false} depthWrite={false} toneMapped={false} />
-    </mesh>
-  )
+    return pos
+  }, [count])
 }
 
-/** Sky and matching haze so the far ground fades out. */
+const GLOW_TWILIGHT = new Color('#ff9a5a')
+const GLOW_DAY = new Color('#fff3d6')
+
+/**
+ * Sky and matching haze that follow the time of day at the site (see sky/skyState): the model's
+ * own colours in daylight, an orange glow around sunrise and sunset, and a dark sky with stars at
+ * night. The fog and the background take the horizon colour, so the far ground melts into the sky.
+ */
 export function Atmosphere({ haze = '#c9d9e6', zenith = '#5b95cf', fogNear = 60, fogFar = 190 }: { haze?: string; zenith?: string; fogNear?: number; fogFar?: number }) {
+  const dome = useRef<ShaderMaterial>(null)
+  const stars = useRef<PointsMaterial>(null)
+  const colors = useMemo(() => ({ dayHorizon: new Color(haze), dayZenith: new Color(zenith), horizon: new Color(haze), zenith: new Color(zenith) }), [haze, zenith])
+  const uniforms = useMemo(
+    () => ({ zenith: { value: new Color(zenith) }, horizon: { value: new Color(haze) }, sunDir: { value: sky.sunDir.clone() }, glowColor: { value: new Color() }, glow: { value: 0 } }),
+    [haze, zenith],
+  )
+  const starPositions = useStarPositions(1800)
+
+  useFrame(({ scene }) => {
+    skyColors(colors.dayHorizon, colors.dayZenith, colors.horizon, colors.zenith)
+    const u = dome.current?.uniforms
+    if (u) {
+      u.zenith.value.copy(colors.zenith)
+      u.horizon.value.copy(colors.horizon)
+      u.sunDir.value.copy(sky.sunDir)
+      u.glowColor.value.copy(GLOW_TWILIGHT).lerp(GLOW_DAY, sky.day)
+      u.glow.value = sky.sunEl > -6 ? Math.max(sky.twilight, sky.day * 0.4) : 0
+    }
+    if (scene.background instanceof Color) scene.background.copy(colors.horizon)
+    scene.fog?.color.copy(colors.horizon)
+    if (stars.current) stars.current.opacity = Math.min(1, sky.night * 1.2) * (1 - sky.day)
+  })
+
   return (
     <>
       <color attach="background" args={[haze]} />
       <fog attach="fog" args={[haze, fogNear, fogFar]} />
-      <SkyDome zenith={zenith} horizon={haze} />
+      <mesh renderOrder={-1}>
+        <sphereGeometry args={[1000, 32, 16]} />
+        <shaderMaterial ref={dome} vertexShader={skyVertex} fragmentShader={skyFragment} uniforms={uniforms} side={BackSide} depthWrite={false} fog={false} toneMapped={false} />
+      </mesh>
+      <points renderOrder={-1}>
+        <bufferGeometry>
+          <bufferAttribute attach="attributes-position" args={[starPositions, 3]} />
+        </bufferGeometry>
+        <pointsMaterial ref={stars} color="#ffffff" size={1.6} sizeAttenuation={false} transparent opacity={0} depthWrite={false} fog={false} />
+      </points>
     </>
   )
 }
@@ -64,6 +120,11 @@ export function Clouds({ count = 8, area = 160, height = 85, seed = 7 }: { count
     if (!g) return
     g.position.x += dt * 0.6
     if (g.position.x > area / 2) g.position.x -= area
+    // a little self-light keeps them bright white by day; at night they go dark like the sky
+    g.traverse((o) => {
+      const m = (o as Mesh).material as MeshStandardMaterial | undefined
+      if (m?.isMeshStandardMaterial) m.emissiveIntensity = 0.25 * sky.day + 0.01
+    })
   })
   return (
     <group ref={group}>

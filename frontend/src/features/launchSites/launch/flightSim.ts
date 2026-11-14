@@ -3,7 +3,7 @@
  * stage separation, falling spent stages, and all the smoke (vapour, steam, pad exhaust, trails).
  * Works in world space: the rocket starts where its anchor on the pad is.
  */
-import { Color, Euler, Fog, Group, PointLight, Quaternion, Scene, Vector3 } from 'three'
+import { Camera, Color, Euler, Fog, Group, Quaternion, Scene, Vector3 } from 'three'
 import { rocketDims, smoothstep } from '../models/lib'
 import type { RocketProps } from '../models/vehicles'
 import { FLAME_LOOK, type Burn } from './flameLook'
@@ -75,7 +75,6 @@ export class FlightSim {
   readonly boosters: Piece[]
   readonly coreRadius: number
   readonly pool: ParticlePool
-  private light: PointLight | null = null
 
   private readonly P: FlightProfile
   private readonly track: boolean
@@ -86,6 +85,7 @@ export class FlightSim {
 
   private init = false
   private done = false
+  private doneAt = Infinity // seconds after liftoff when it went out of sight
   private t: number // seconds from liftoff
   private readonly p0 = new Vector3() // base of the rocket on the pad
   private readonly q0 = new Quaternion()
@@ -158,7 +158,6 @@ export class FlightSim {
     if (P.stageSep)
       events.push([P.stageSep, 'Stage separation'], [P.stageSep + 1.2, 'Second stage ignition'])
     if (P.burnout) events.push([P.burnout, 'Motor burnout, coasting'])
-    events.push([P.duration, P.endEvent ?? 'Out of sight'])
     this.events = events.sort((a, b) => a[0] - b[0])
   }
 
@@ -166,15 +165,11 @@ export class FlightSim {
     return [this.stage1, this.upper, ...this.boosters]
   }
 
-  /** Scene objects this flight moves: the pieces' groups and the flame light. */
+  /** Scene objects this flight moves: the groups of its pieces. */
   setGroup(piece: 'stage1' | 'upper' | number, group: Group | null) {
     const p =
       piece === 'stage1' ? this.stage1 : piece === 'upper' ? this.upper : this.boosters[piece]
     p.group = group
-  }
-
-  setLight(light: PointLight | null) {
-    this.light = light
   }
 
   /** First frame: read where the rocket stands from its anchor on the pad. */
@@ -209,7 +204,7 @@ export class FlightSim {
     this.init = true
   }
 
-  step(rawDt: number, anchor: Group | null, scene: Scene) {
+  step(rawDt: number, anchor: Group | null, scene: Scene, camera: Camera) {
     const dt = Math.min(Math.max(rawDt, 1e-4), 1 / 20)
     if (!this.init) {
       if (!anchor) return
@@ -302,24 +297,33 @@ export class FlightSim {
     this.emitSmoke(dt, T)
     this.pool.update(dt)
 
-    // --- light from the flames on the pad and the smoke -----------------------------------------
-    const thrust = this.thrust()
-    if (this.light) {
-      const lit = this.done ? 0 : !stage1.free ? thrust : upper.burn.throttle * 0.15
-      this.light.intensity = lit * 260 * this.size * (0.9 + 0.2 * Math.random())
-      this.light.position.copy(this.dir).multiplyScalar(-1.2).add(this.pos)
-    }
-
-    // --- end of the flight, camera tracking and the mission clock -------------------------------
-    // the animation ends here: the rocket goes, the camera cuts back to the overview (see tracker.cut)
-    if (T >= P.duration && !this.done) {
+    // --- end of the flight -------------------------------------------------------------------
+    // It ends once the rocket has faded into the haze (further than the fog reaches), so it is
+    // never seen to vanish; or after the longest flight. The tracking camera stretches the fog
+    // while it follows, so then the flight runs its full length and the camera cuts back.
+    const fog = scene.fog as Fog | null
+    const outOfSight =
+      T > 2 && fog !== null && camera.position.distanceTo(this.pos) > fog.far * 1.05
+    if ((T >= P.duration || outOfSight) && !this.done) {
       this.done = true
+      this.doneAt = T
       for (const p of this.pieces) if (p.group) p.group.visible = false
       if (this.track && tracker.owner === this) tracker.cut = true
     }
+
+    // --- light from the flames on the pad and the smoke (one shared light, see LaunchLight) -----
+    const thrust = this.thrust()
+    if (this.track && tracker.owner === this) {
+      const lit = this.done ? 0 : !stage1.free ? thrust : upper.burn.throttle * 0.15
+      tracker.light.intensity = lit * 260 * this.size * (0.9 + 0.2 * Math.random())
+      tracker.light.position.copy(this.dir).multiplyScalar(-1.2).add(this.pos)
+    }
+
+    // --- camera tracking and the mission clock ----------------------------------------------
     if (this.track && tracker.owner === this) {
       const lift = this.pos.y - this.p0.y
       tracker.active = !this.done
+      tracker.elapsed = Math.min(T, this.doneAt) + P.countdown
       if (stage1.free)
         tracker.focus
           .copy(this.dir)
@@ -335,9 +339,10 @@ export class FlightSim {
         : Math.min(1, thrust * this.size * 0.45) * Math.max(0, 1 - lift / 35)
 
       const phase: LaunchPhase = this.done ? 'done' : T < 0 ? 'countdown' : 'flight'
-      const clock = T < 0 ? -Math.ceil(-T) : Math.floor(Math.min(T, P.duration)) // stops when out of sight
+      const clock = T < 0 ? -Math.ceil(-T) : Math.floor(Math.min(T, this.doneAt)) // stops when out of sight
       let event = this.events[0][1]
       for (const [at, label] of this.events) if (at <= T) event = label
+      if (this.done) event = 'Out of sight'
       const key = `${phase}|${clock}|${event}`
       if (key !== this.reportKey) {
         this.reportKey = key
@@ -555,6 +560,7 @@ export class FlightSim {
       tracker.active = false
       tracker.owner = null
       tracker.shake = 0
+      tracker.light.intensity = 0
     }
     this.pool.dispose()
   }

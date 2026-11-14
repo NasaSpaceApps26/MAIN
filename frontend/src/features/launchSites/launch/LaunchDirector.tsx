@@ -151,9 +151,8 @@ class CameraDirector {
     follow: boolean,
   ) {
     const dt = Math.min(rawDt, 0.05)
-    this.updateFog(dt, camera, scene)
-
     const want = tracker.active && follow
+    this.updateFog(dt, camera, scene, want)
     if (want && this.mode !== 'in') {
       if (this.mode === 'free') {
         this.savedPos.copy(camera.position)
@@ -281,10 +280,13 @@ class CameraDirector {
     if (pick.next >= CANDIDATES.length) this.pick = null
   }
 
-  /** Stretch the fog while a rocket is up, ease it back afterwards. */
-  private updateFog(dt: number, camera: PerspectiveCamera, scene: Scene) {
+  /**
+   * While the camera follows a rocket, stretch the fog so the distant rocket stays visible; ease it
+   * back afterwards. Without the tracking camera the rocket simply fades into the haze.
+   */
+  private updateFog(dt: number, camera: PerspectiveCamera, scene: Scene, following: boolean) {
     const fog = scene.fog as Fog | null
-    if (fog && tracker.active) {
+    if (fog && following) {
       if (this.fog !== fog) {
         this.fog = fog
         this.fogNear = fog.near

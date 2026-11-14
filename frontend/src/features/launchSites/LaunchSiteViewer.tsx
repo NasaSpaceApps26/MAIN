@@ -8,6 +8,8 @@ import { VandenbergModel } from './models/VandenbergModel'
 import { WallopsModel } from './models/WallopsModel'
 import { formatCoord, nearbySites, siteById, type LaunchSiteId } from './sites'
 import { LaunchDirector } from './launch/LaunchDirector'
+import { LaunchLight, LaunchPrewarm, LaunchTimeSync } from './launch/LaunchStage'
+import { SkyClock, SkyLights } from './sky/SkyScene'
 import { LaunchClock, LaunchPanel } from './launch/LaunchPanel'
 import { useLaunchStore } from './launch/launchStore'
 import styles from './LaunchSiteViewer.module.css'
@@ -99,25 +101,17 @@ function ViewerWindow({ siteId, onClose }: { siteId: LaunchSiteId; onClose: () =
 
         <div className={styles.stage}>
           <Canvas shadows dpr={[1, 2]} camera={{ position: VIEWS[siteId].camera, fov: 40, near: 0.1, far: 1200 }}>
-            <hemisphereLight args={['#dfefff', '#4b5a3a', 0.9]} />
-            <ambientLight intensity={0.15} />
-            <directionalLight
-              position={[70, 100, 40]}
-              intensity={2.3}
-              castShadow
-              shadow-mapSize={[4096, 4096]}
-              shadow-camera-left={-110}
-              shadow-camera-right={110}
-              shadow-camera-top={110}
-              shadow-camera-bottom={-110}
-              shadow-camera-far={300}
-              shadow-bias={-0.0004}
-              shadow-normalBias={0.03}
-            />
+            {/* during a launch the mission clock runs with the launch timer */}
+            <LaunchTimeSync />
+            {/* sky, sunlight and night lamps follow the mission clock at this site */}
+            <SkyClock lat={active.lat} lon={active.lon} />
+            <SkyLights />
             <Model key={activeId} />
             <OrbitControls makeDefault autoRotate autoRotateSpeed={0.35} minDistance={4} maxDistance={220} maxPolarAngle={Math.PI / 2.08} />
             <ResetView view={VIEWS[activeId]} />
             <LaunchDirector viewKey={activeId} />
+            <LaunchLight />
+            <LaunchPrewarm key={`prewarm-${activeId}`} />
           </Canvas>
           <LaunchClock />
           <LaunchPanel key={activeId} pads={active.pads} />
@@ -131,7 +125,6 @@ function ViewerWindow({ siteId, onClose }: { siteId: LaunchSiteId; onClose: () =
               <li key={f}>{f}</li>
             ))}
           </ul>
-          <p className={styles.note}>Simplified model built from basic shapes: buildings and rockets roughly to scale, distances between them shortened. The Saturn V launch shows the last 3 s of the countdown and the first 7 s of flight.</p>
         </div>
       </div>
     </section>

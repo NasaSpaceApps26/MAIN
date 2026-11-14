@@ -5,6 +5,8 @@ import { along, inRect, MOUNT_H, scatter, smoothstep, type Rect, type V3 } from 
 import { Atmosphere, Clouds, Ocean, Rocks, Terrain, Trees } from './nature'
 import { Dish, Fence, Hangar, HorizontalTank, LatticeTower, LightningRing, LightningTower, Office, Pad, Pillars, RadarDome, Shed, SphereTank, WaterTower } from './structures'
 import { Airplane, ControlTower, ParkingLot, Rocket } from './vehicles'
+import { SaturnVOnPad } from '../launch/SaturnVOnPad'
+import { PROFILES } from '../launch/profiles'
 
 // x = east (toward the Atlantic), -z = north
 const ISLAND_Y = 0.3 // top of the sand island
@@ -148,7 +150,7 @@ export function WallopsModel() {
 
       {/* Pad 0A: liquid rocket on its transporter-erector, lightning masts, tanks */}
       <Pad position={pad0A} radius={3.2} rotationY={Math.PI}>
-        <Rocket position={[0, MOUNT_H, 0]} height={7} radius={0.36} engines={2} fairingRadius={0.42} accent="#3b3f46" />
+        <SaturnVOnPad pad="0a" profile={PROFILES.saturnVWallops} position={[0, MOUNT_H, 0]} />
         <LatticeTower position={[-0.85, 0.3, 0]} height={6.6} width={0.55} color="#5a6067" crane={false} floorsEvery={4} elevator={false} />
       </Pad>
       <LightningRing center={pad0A} radius={4.8} height={10} />
@@ -163,15 +165,15 @@ export function WallopsModel() {
 
       {/* Pad 0B: solid rocket in its red service gantry */}
       <Pad position={pad0B} radius={2.6} rotationY={Math.PI}>
-        <Rocket position={[0, MOUNT_H, 0]} height={5.6} radius={0.3} fairingRadius={0.33} color="#dcdcd6" accent="#4a4d52" stripes={[{ at: 0.3, h: 0.02, color: '#4a4d52' }]} />
-        <LatticeTower position={[1.75, 0, 0]} height={7} width={1.2} color={COLORS.tower} arms={[{ y: 5, length: 0.95 }, { y: 3, length: 0.95 }]} />
+        <SaturnVOnPad pad="0b" profile={PROFILES.saturnVWallops} position={[0, MOUNT_H, 0]} />
+        <LatticeTower position={[1.75, 0, 0]} height={7} width={1.2} color={COLORS.tower} arms={[{ y: 5, length: 0.65 }, { y: 3, length: 0.65 }]} />
       </Pad>
       <LightningTower position={[pad0B[0] - 3.2, ISLAND_Y, pad0B[2] + 2.5]} height={10} />
 
       {/* Launch Complex 2: small carbon-black rocket with a white strongback */}
       <Pad position={lc2} radius={1.9} rotationY={Math.PI}>
-        <Rocket position={[0, MOUNT_H, 0]} height={3.6} radius={0.17} engines={9} fairingRadius={0.19} color="#1d1f23" fairingColor="#1d1f23" accent="#4a4d52" />
-        <Box size={[0.22, 3.5, 0.45]} position={[0.42, MOUNT_H + 1.75, 0]} color={COLORS.white} />
+        <SaturnVOnPad pad="lc2" profile={PROFILES.saturnVWallops} position={[0, MOUNT_H, 0]} />
+        <Box size={[0.22, 3.5, 0.45]} position={[0.75, MOUNT_H + 1.75, 0]} color={COLORS.white} />
       </Pad>
       <Hangar position={[7, ISLAND_Y, lc2[2] + 0.5]} size={[2.6, 1.5, 3]} rotationY={Math.PI / 2} />
 

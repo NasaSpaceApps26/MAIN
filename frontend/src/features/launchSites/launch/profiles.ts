@@ -3,9 +3,6 @@
  * lengths are in model units (about 10 m).
  */
 
-/** Whole launch animation, from pressing Launch to the cut back to the overview, in seconds. */
-export const LAUNCH_SECONDS = 10
-
 /** Propellant, which sets the colour of the flame and how much of a smoke trail it leaves. */
 export type EngineKind = 'kerosene' | 'hydrogen' | 'solid'
 
@@ -24,34 +21,36 @@ export type FlightProfile = {
   boosterSep?: number // seconds after liftoff
   stageSep?: number // seconds after liftoff
   burnout?: number // single-stage rockets: engine stops, then they coast
-  duration: number // seconds after liftoff when the launch animation ends
-  endEvent?: string // shown on the mission clock when it ends
+  duration: number // longest flight, seconds after liftoff (it usually ends sooner, out of sight in the haze)
   fireball?: boolean // hydrogen fireball climbing the rocket at ignition
 }
 
 /** Direction (x, z) the flame trenches blow the exhaust: every pad in the models faces it this way. */
 export const TRENCH: [number, number] = [0, -1]
 
-const COUNTDOWN = 3
+/**
+ * Saturn V: ignition sequence on the pad, liftoff, the roll toward the flight azimuth, clearing the
+ * tower, then climbing and pitching over downrange until it fades into the haze. The first stage
+ * keeps burning: no stage falls away while it is in view.
+ */
+const SATURN_V: FlightProfile = {
+  countdown: 3,
+  hold: 1.5,
+  accel: 1.2,
+  jerk: 0.12,
+  heading: [0.95, -0.31], // from Florida: 72° east of north, as on the Apollo Moon missions
+  pitchStart: 12,
+  pitchEnd: 450,
+  pitchMax: 1.1,
+  roll: 0.31,
+  core: 'kerosene',
+  duration: 40,
+}
 
 export const PROFILES = {
-  /**
-   * Saturn V from LC-39A: ignition sequence on the pad, liftoff, the roll toward the flight azimuth
-   * (72° east of north, as on the Apollo Moon missions) and clearing the tower. The animation ends
-   * there, long before any stage falls away.
-   */
-  saturnV: {
-    countdown: COUNTDOWN,
-    hold: 1.5,
-    accel: 1.2,
-    jerk: 0.12,
-    heading: [0.95, -0.31],
-    pitchStart: 12,
-    pitchEnd: 450,
-    pitchMax: 1.1,
-    roll: 0.31,
-    core: 'kerosene',
-    duration: LAUNCH_SECONDS - COUNTDOWN,
-    endEvent: 'Liftoff complete',
-  },
+  saturnV: SATURN_V,
+  /** From Vandenberg: south over the Pacific, into a polar orbit. */
+  saturnVPolar: { ...SATURN_V, heading: [-0.25, 1] },
+  /** From Wallops: southeast over the Atlantic. */
+  saturnVWallops: { ...SATURN_V, heading: [1, 0.35] },
 } satisfies Record<string, FlightProfile>

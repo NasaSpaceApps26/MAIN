@@ -51,7 +51,7 @@ export function LaunchableRocket({
   )
 }
 
-/** The flying rocket: its stages and boosters as separate pieces, their flames, smoke and light. */
+/** The flying rocket: its stages and boosters as separate pieces, their flames and smoke. */
 function Flight({
   anchor,
   rocket,
@@ -70,20 +70,13 @@ function Flight({
   // one simulation per launch (this component is keyed by the launch run)
   const [sim] = useState(() => new FlightSim(rocket, profile, track, report))
   useEffect(() => () => sim.dispose(), [sim])
-  useFrame((_, dt) => sim.step(dt, anchor.current, scene))
+  useFrame((state, dt) => sim.step(dt, anchor.current, scene, state.camera))
 
   const { dims } = sim
   const rotation = rocket.rotation
   return (
     <>
       <primitive object={sim.pool.mesh} />
-      <pointLight
-        ref={(l) => sim.setLight(l)}
-        color="#ffb060"
-        intensity={0}
-        distance={90}
-        decay={2}
-      />
       <group ref={(g) => sim.setGroup('stage1', g)} visible={false}>
         <group rotation={rotation}>
           <Vehicle {...rocket} rotation={undefined} part="stage1" />
