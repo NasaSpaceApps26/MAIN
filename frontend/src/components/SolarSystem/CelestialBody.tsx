@@ -4,6 +4,7 @@ import { Html } from '@react-three/drei'
 import type { Group, Mesh } from 'three'
 import type { Body, StateSample } from '../../api/types'
 import { useSimStore } from '../../store/simStore'
+import { LaunchSites } from './LaunchSites'
 import { positionAt } from './orbitMath'
 import { radiusToUnits } from './scale'
 
@@ -29,6 +30,7 @@ export function CelestialBody({ body, samples }: Props) {
   const group = useRef<Group>(null)
   const mesh = useRef<Mesh>(null)
   const selectBody = useSimStore((s) => s.selectBody)
+  const radius = radiusToUnits(body.radius_km, body.id)
 
   useFrame(() => {
     const t = useSimStore.getState().simTimeMs
@@ -48,12 +50,13 @@ export function CelestialBody({ body, samples }: Props) {
           selectBody(body.id)
         }}
       >
-        <sphereGeometry args={[radiusToUnits(body.radius_km, body.id), 48, 48]} />
+        <sphereGeometry args={[radius, 48, 48]} />
         {body.id === 'sun' ? (
           <meshBasicMaterial color={body.color} />
         ) : (
           <meshStandardMaterial color={body.color} />
         )}
+        {body.id === 'earth' && <LaunchSites radius={radius} />}
       </mesh>
       {/* At true scale planets are smaller than a pixel, so a clickable label marks each one */}
       <Html zIndexRange={[0, 0]}>

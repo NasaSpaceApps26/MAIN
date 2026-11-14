@@ -86,7 +86,7 @@ export default function MoonSky({ view = 'results', active = true }) {
     }
   };
 
-  const { loading, error, samples, analysis } = useMoonSky({
+  const { loading, error, retry, samples, analysis } = useMoonSky({
     lat: p.lat, lon: p.lon, altKm: p.alt, start: startMs, days: p.days, step: p.step, at, mode,
   });
 
@@ -137,7 +137,12 @@ export default function MoonSky({ view = 'results', active = true }) {
       <div className="moon-sky">
         <div className="app">
           {header}
-          {error && <div className="error">⚠️ {error}</div>}
+          {error && (
+            <div className="error">
+              ⚠️ {error}{' '}
+              <button type="button" onClick={retry}>Retry</button>
+            </div>
+          )}
           <section className="card">
             <Controls p={p} onChange={update} />
           </section>
@@ -151,7 +156,12 @@ export default function MoonSky({ view = 'results', active = true }) {
       <div className="app">
         {header}
 
-        {error && <div className="error">⚠️ {error}</div>}
+        {error && (
+            <div className="error">
+              ⚠️ {error}{' '}
+              <button type="button" onClick={retry}>Retry</button>
+            </div>
+          )}
 
         <div className="grid">
           <section className="card">

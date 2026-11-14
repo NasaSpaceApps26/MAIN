@@ -75,6 +75,34 @@ const p = positionAt([{ t: 0, az: 359, el: 0 }, { t: 10, az: 1, el: 2 }], 5);
 assert.ok(Math.abs(p.az - 0) < 1e-9 || Math.abs(p.az - 360) < 1e-9);
 assert.equal(p.el, 1);
 
+// Horizons 503 / dropped connection → retried; a 400 is not retried
+{
+  let calls = 0;
+  const flaky = async (url, opts) => {
+    calls++;
+    if (calls === 1) return { ok: false, status: 503, headers: new Headers() };
+    if (calls === 2) throw new TypeError('fetch failed');
+    return fakeFetch(url, opts);
+  };
+  const noSleep = async () => {};
+  const s = await fetchSky({ lat: 0.6741, lon: 23.473, start: T0, stop: T0 + 86400_000 }, { fetchImpl: flaky, sleep: noSleep });
+  assert.ok(s.sun.length > 0 && s.earth.length > 0, 'retries recover from 503 and network errors');
+
+  let badCalls = 0;
+  const bad = async () => { badCalls++; return { ok: false, status: 400, headers: new Headers() }; };
+  await assert.rejects(
+    fetchSky({ lat: 0, lon: 0, start: T0, stop: T0 + 86400_000 }, { fetchImpl: bad, sleep: noSleep }),
+    /HTTP 400/,
+  );
+  assert.equal(badCalls, 2, '400 is not retried (one call per body)');
+
+  const down = async () => ({ ok: false, status: 503, headers: new Headers() });
+  await assert.rejects(
+    fetchSky({ lat: 0, lon: 0, start: T0, stop: T0 + 86400_000 }, { fetchImpl: down, sleep: noSleep }),
+    (e) => e.upstreamBusy === true,
+  );
+}
+
 console.log('OK – all tests passed');
 console.log('Sun: until set', a.sun.minutesToSet, 'min; windows:', a.sun.windows.length);
 console.log('Earth: el', a.earth.el.toFixed(2), '°; rises/sets:', ec.length);

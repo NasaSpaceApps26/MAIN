@@ -1,4 +1,5 @@
 import { create } from 'zustand'
+import type { LaunchSiteId } from '../features/launchSites/sites'
 
 type SimState = {
   simTimeMs: number
@@ -7,6 +8,7 @@ type SimState = {
   selectedBodyId: string | null
   departureSiteId: string | null
   landingSiteId: string | null
+  launchSiteId: LaunchSiteId | null // launch site whose 3D model window is open
   setSimTime: (t: number) => void
   advance: (realDeltaSec: number) => void
   togglePlay: () => void
@@ -14,6 +16,7 @@ type SimState = {
   selectBody: (id: string | null) => void
   setDepartureSite: (id: string | null) => void
   setLandingSite: (id: string | null) => void
+  openLaunchSite: (id: LaunchSiteId | null) => void
 }
 
 export const useSimStore = create<SimState>()((set, get) => ({
@@ -23,6 +26,7 @@ export const useSimStore = create<SimState>()((set, get) => ({
   selectedBodyId: null,
   departureSiteId: null,
   landingSiteId: null,
+  launchSiteId: null,
   setSimTime: (t) => set({ simTimeMs: t }),
   advance: (dt) => {
     const { isPlaying, simTimeMs, timeScale } = get()
@@ -33,4 +37,5 @@ export const useSimStore = create<SimState>()((set, get) => ({
   selectBody: (id) => set({ selectedBodyId: id }),
   setDepartureSite: (id) => set({ departureSiteId: id }),
   setLandingSite: (id) => set({ landingSiteId: id }),
+  openLaunchSite: (id) => set({ launchSiteId: id }),
 }))

@@ -109,17 +109,57 @@ export function parseHorizonsResult(text) {
   return samples;
 }
 
-/** Fetches samples for a single body. */
-export async function fetchBodySamples(opts, { fetchImpl = fetch } = {}) {
-  const url = buildHorizonsUrl(opts);
-  const res = await fetchImpl(url);
-  if (!res.ok) throw new Error(`Horizons HTTP ${res.status}`);
-  const json = await res.json();
-  if (json.error) throw new Error(`Horizons: ${json.error}`);
-  return parseHorizonsResult(json.result);
+// Horizons answers 503 when one IP sends several requests at once (or when it is overloaded),
+// and sometimes drops the connection mid-response. So: one request at a time, and retries.
+const RETRY_DELAYS_MS = [1500, 4000, 10000];
+const ATTEMPT_TIMEOUT_MS = 90_000;
+
+/** HTTP statuses worth retrying (temporary overload / gateway trouble). */
+const RETRYABLE = new Set([429, 500, 502, 503, 504]);
+
+let queue = Promise.resolve();
+/** Runs `job` after every previously queued Horizons request has finished. */
+function enqueue(job) {
+  const run = queue.then(job, job);
+  queue = run.catch(() => {});
+  return run;
 }
 
-/** Fetches the Sun and the Earth in parallel. */
+const sleepMs = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/** Fetches samples for a single body (queued, retried on temporary errors). */
+export async function fetchBodySamples(opts, { fetchImpl = fetch, sleep = sleepMs } = {}) {
+  const url = buildHorizonsUrl(opts);
+  return enqueue(async () => {
+    for (let attempt = 0; ; attempt++) {
+      let retryAfterMs = null;
+      try {
+        const res = await fetchImpl(url, { signal: AbortSignal.timeout(ATTEMPT_TIMEOUT_MS) });
+        if (!res.ok) {
+          const err = new Error(`Horizons HTTP ${res.status}`);
+          err.retryable = RETRYABLE.has(res.status);
+          const ra = parseFloat(res.headers?.get?.('retry-after'));
+          if (Number.isFinite(ra)) retryAfterMs = Math.min(ra * 1000, 30_000);
+          throw err;
+        }
+        const json = await res.json();
+        if (json.error) throw new Error(`Horizons: ${json.error}`);
+        return parseHorizonsResult(json.result);
+      } catch (e) {
+        // network failures (fetch failed, connection closed, timeout) are retryable too
+        const retryable = e.retryable ?? (e.name === 'TypeError' || e.name === 'TimeoutError');
+        if (!retryable || attempt >= RETRY_DELAYS_MS.length) {
+          if (retryable) e.upstreamBusy = true;
+          throw e;
+        }
+        console.warn(`${e.message} – retry ${attempt + 1}/${RETRY_DELAYS_MS.length}`);
+        await sleep(retryAfterMs ?? RETRY_DELAYS_MS[attempt]);
+      }
+    }
+  });
+}
+
+/** Fetches the Sun and the Earth (one after another – see the queue above). */
 export async function fetchSky({ lat, lon, altKm = 0, start, stop, step = '10m' }, deps) {
   const base = { lat, lon, altKm, start, stop, step };
   const [sun, earth] = await Promise.all([
