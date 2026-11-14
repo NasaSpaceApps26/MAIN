@@ -177,7 +177,8 @@ export function Terrain({
     return g
   }, [size, segments, height, colorAt, color])
   return (
-    <mesh geometry={geometry} rotation={[-Math.PI / 2, 0, 0]} receiveShadow castShadow>
+    // heightAt lets the launch camera test the hills without raycasting every triangle
+    <mesh geometry={geometry} rotation={[-Math.PI / 2, 0, 0]} receiveShadow castShadow userData={{ heightAt: height, size }}>
       <meshStandardMaterial vertexColors roughness={1} flatShading />
     </mesh>
   )

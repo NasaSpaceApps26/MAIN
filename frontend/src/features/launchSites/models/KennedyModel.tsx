@@ -1,10 +1,12 @@
 import { useMemo } from 'react'
 import { Box, Building, Flat, Pipe, Road, RoadPath, Water } from './basics'
 import { COLORS } from './colors'
-import { around, MOUNT_H, scatter, type Rect } from './lib'
+import { around, SATURN_V, scatter, type Rect } from './lib'
 import { Atmosphere, Clouds, Ocean, Surf, Trees } from './nature'
-import { Fence, Flag, FloodLight, LatticeTower, LightningRing, Mound, Office, Pad, Ribs, Shed, SphereTank, WaterTower } from './structures'
-import { Crawler, MobileLauncher, ParkingLot, Rocket } from './vehicles'
+import { Fence, Flag, FloodLight, LightningRing, Mound, Office, Pad, Ribs, Shed, SphereTank, WaterTower } from './structures'
+import { Crawler, MobileLauncher, ParkingLot, Rocket, SaturnV } from './vehicles'
+import { LaunchableRocket } from '../launch/LaunchableRocket'
+import { PROFILES } from '../launch/profiles'
 
 // x = east (toward the Atlantic), -z = north
 const VAB_X = -58 // the assembly building and control centre sit far back from the pads, for safety
@@ -80,7 +82,10 @@ function VehicleAssemblyBuilding() {
   )
 }
 
-/** Launch Complex 39A: crewed rocket at the fixed service structure, tanks, water tower, lights. */
+/**
+ * Launch Complex 39A as in the Apollo years: a Saturn V on its mobile launcher with the red launch
+ * umbilical tower and its swing arms (the crew access arm at the command module), tanks, lights.
+ */
 function PadA() {
   const [x, z] = PAD_A
   const lights: [number, number][] = [
@@ -89,22 +94,34 @@ function PadA() {
     [3.3, -3.3],
     [-3.3, -3.3],
   ]
+  const pedestals = [-1.8, 0, 1.8].flatMap((px) => [-1.6, 1.6].map((pz) => [px, pz] as const))
+  // arms reach from the tower's inner face (1.45 from the rocket's axis) to the rocket's skin
+  const toSkin = (r: number) => 1.45 - r
   return (
     <>
       <Mound position={[x, 0, z]} radius={6.5}>
-        <Pad radius={3.2} rotationY={Math.PI}>
-          <Rocket position={[0, MOUNT_H, 0]} height={8} radius={0.3} engines={9} gridFins legs capsule />
-          <LatticeTower
-            position={[1.95, 0, 0]}
-            height={8.6}
-            width={1.6}
-            color="#7d838a"
-            arms={[
-              { y: 7.4, length: 0.85, kind: 'crew' },
-              { y: 5, length: 0.85 },
-            ]}
-            mast={3}
-          />
+        <Pad radius={3.4} rotationY={Math.PI}>
+          {pedestals.map(([px, pz]) => (
+            <Box key={`${px}${pz}`} size={[0.4, 0.3, 0.4]} position={[px, 0.15, pz]} color={COLORS.concreteDark} />
+          ))}
+          <group position={[0, 0.3, 0]}>
+            <MobileLauncher
+              towerHeight={12.2}
+              towerColor={COLORS.tower}
+              arms={[
+                { y: 1.6, length: toSkin(SATURN_V.radius) },
+                { y: 3.3, length: toSkin(SATURN_V.radius) },
+                { y: 4.4, length: toSkin(SATURN_V.radius) },
+                { y: 5.6, length: toSkin(SATURN_V.radius) },
+                { y: 6.5, length: toSkin(SATURN_V.radius) },
+                { y: 7.6, length: toSkin(SATURN_V.upperRadius) },
+                { y: 8.5, length: toSkin(SATURN_V.upperRadius) },
+                { y: 10, length: toSkin(0.12), kind: 'crew' },
+              ]}
+            >
+              <LaunchableRocket pad="39a" profile={PROFILES.saturnV} vehicle={SaturnV} height={SATURN_V.height} radius={SATURN_V.radius} engines={SATURN_V.engines} />
+            </MobileLauncher>
+          </group>
         </Pad>
         {lights.map(([lx, lz]) => (
           <FloodLight key={`${lx}${lz}`} position={[lx, 0, lz]} face={Math.atan2(-lz, lx)} height={3} />

@@ -1,5 +1,12 @@
 export type LaunchSiteId = 'ksc' | 'ccsfs' | 'vandenberg' | 'wallops'
 
+/** Pad in a site's model whose rocket can be launched from the window. */
+export type LaunchPad = {
+  id: string
+  name: string
+  rocket: string // what stands on it
+}
+
 export type LaunchSite = {
   id: LaunchSiteId
   name: string
@@ -7,6 +14,7 @@ export type LaunchSite = {
   lon: number // east longitude, degrees
   description: string
   features: string[] // what the 3D model shows
+  pads: LaunchPad[]
 }
 
 /** NASA launch sites. */
@@ -22,9 +30,11 @@ export const LAUNCH_SITES: readonly LaunchSite[] = [
       'Vehicle Assembly Building',
       'Launch Control Center',
       'Crawlerway with a crawler-transporter and mobile launcher',
-      'Launch Complex 39 pad with service tower and water tower',
+      'LC-39A with a Saturn V on its mobile launcher and red launch umbilical tower',
+      'LC-39B with a heavy-lift rocket, lightning towers and water tower',
       'Turning basin',
     ],
+    pads: [{ id: '39a', name: 'LC-39A', rocket: 'Saturn V, as on the Apollo Moon missions' }],
   },
   {
     id: 'ccsfs',
@@ -39,6 +49,7 @@ export const LAUNCH_SITES: readonly LaunchSite[] = [
       'SLC-37 with its mobile service tower',
       'Cape Canaveral Lighthouse',
     ],
+    pads: [],
   },
   {
     id: 'vandenberg',
@@ -53,6 +64,7 @@ export const LAUNCH_SITES: readonly LaunchSite[] = [
       'Landing Zone 4',
       'SLC-6 with its mobile service tower',
     ],
+    pads: [],
   },
   {
     id: 'wallops',
@@ -68,6 +80,7 @@ export const LAUNCH_SITES: readonly LaunchSite[] = [
       'Rail launchers for sounding rockets',
       'Radar domes, causeway and the main base runway',
     ],
+    pads: [],
   },
 ]
 

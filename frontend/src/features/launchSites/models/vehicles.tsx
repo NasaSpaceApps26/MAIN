@@ -1,9 +1,9 @@
 /** Rockets, the crawler-transporter, an airplane and parked cars. */
 import { useMemo, type ReactNode } from 'react'
-import { LatheGeometry, Vector2 } from 'three'
+import { DoubleSide, LatheGeometry, Vector2 } from 'three'
 import { Box, Boxes, Building, Cylinder, Instanced, type Item } from './basics'
 import { CAR_COLORS, COLORS } from './colors'
-import { pick, rng, type V3 } from './lib'
+import { pick, rng, rocketDims, SATURN_V, type V3 } from './lib'
 import { LatticeTower, type Arm } from './structures'
 
 /** Ogive (pointed arch) nose: straight for `straight` of its height, then curving to a tip. */
@@ -69,103 +69,120 @@ export type RocketProps = {
   gridFins?: boolean
   legs?: boolean // folded landing legs
   stripes?: { at: number; h: number; color: string }[] // bands, fractions of the height
+  part?: RocketPart
 }
+
+/**
+ * Which piece of the rocket to draw: everything, the first stage (with engines and interstage),
+ * the upper stage with its payload, or one side booster. The pieces line up in the rocket's own frame,
+ * so a launch can draw them separately and let them fall away.
+ */
+export type RocketPart = 'all' | 'stage1' | 'upper' | { booster: number }
 
 /**
  * Generic rocket, base at `position`: engine bells, first stage, interstage, second stage, and a
  * payload fairing or a crew capsule with an abort tower. Optional side boosters, grid fins and legs.
  */
-export function Rocket({
-  position = [0, 0, 0],
-  rotation,
-  height = 7,
-  radius = 0.3,
-  color = COLORS.white,
-  accent = COLORS.dark,
-  fairingRadius = radius,
-  fairingColor = COLORS.white,
-  engines = 1,
-  boosters = 0,
-  boosterColor = COLORS.white,
-  boosterRadius = radius * 0.42,
-  boosterHeight = 0.55,
-  boosterNose = true,
-  capsule = false,
-  gridFins = false,
-  legs = false,
-  stripes = [],
-}: RocketProps) {
-  const nozzle = radius * 0.55
-  const s1 = height * 0.56
-  const inter = height * 0.05
-  const s2 = height * 0.15
-  const top = height - s1 - inter - s2 - nozzle
-  const y1 = nozzle
-  const y2 = y1 + s1
-  const y3 = y2 + inter
-  const y4 = y3 + s2
-  const bh = height * boosterHeight
-  const d = radius + boosterRadius * 1.02
+export function Rocket(props: RocketProps) {
+  const {
+    position = [0, 0, 0],
+    rotation,
+    height = 7,
+    radius = 0.3,
+    color = COLORS.white,
+    accent = COLORS.dark,
+    fairingRadius = radius,
+    fairingColor = COLORS.white,
+    engines = 1,
+    boosterColor = COLORS.white,
+    boosterNose = true,
+    capsule = false,
+    gridFins = false,
+    legs = false,
+    stripes = [],
+    part = 'all',
+  } = props
+  const { nozzle, s1, inter, s2, top, y1, y2, y3, y4, d, boosterRadius, bh, boosterAt } = rocketDims(props)
+  const lower = part === 'all' || part === 'stage1'
+  const upper = part === 'all' || part === 'upper'
+  const showBooster = (i: number) => part === 'all' || (typeof part === 'object' && part.booster === i)
 
   const fins = useMemo<Item[]>(
     () =>
-      gridFins
+      gridFins && lower
         ? [0, 1, 2, 3].map((i) => {
             const a = (i / 4) * Math.PI * 2 + Math.PI / 4
             return { p: [Math.cos(a) * radius * 1.15, y2 - radius * 0.4, Math.sin(a) * radius * 1.15], s: [radius * 0.55, radius * 0.5, 0.03], r: [0, -a + Math.PI / 2, 0] }
           })
         : [],
-    [gridFins, radius, y2],
+    [gridFins, lower, radius, y2],
   )
   const legItems = useMemo<Item[]>(
     () =>
-      legs
+      legs && lower
         ? [0, 1, 2, 3].map((i) => {
             const a = (i / 4) * Math.PI * 2 + Math.PI / 4
             return { p: [Math.cos(a) * radius * 1.02, y1 + s1 * 0.16, Math.sin(a) * radius * 1.02], s: [0.09, s1 * 0.3, 0.09], r: [0, -a, 0] }
           })
         : [],
-    [legs, radius, y1, s1],
+    [legs, lower, radius, y1, s1],
   )
 
   return (
     <group position={position} rotation={rotation}>
-      <Nozzles count={engines} radius={radius} y={nozzle * 0.5} size={nozzle * 0.42 * (engines > 1 ? 0.75 : 1.2)} />
-      <Cylinder radius={radius} height={radius * 0.25} position={[0, y1 + radius * 0.12, 0]} color={COLORS.dark} segments={24} />
-      <Cylinder radius={radius} height={s1} position={[0, y1 + s1 / 2, 0]} color={color} segments={28} roughness={0.45} />
-      {/* raceway: cable tray along the side */}
-      <Box size={[0.05, s1 + s2, 0.09]} position={[radius + 0.02, y1 + (s1 + s2) / 2, 0]} color={COLORS.offWhite} />
-      <Cylinder radius={radius * 1.005} height={inter} position={[0, y2 + inter / 2, 0]} color={accent} segments={28} />
-      <Cylinder radius={radius} height={s2} position={[0, y3 + s2 / 2, 0]} color={color} segments={28} roughness={0.45} />
-      {stripes.map((st) => (
-        <Cylinder key={st.at} radius={radius * 1.006} height={height * st.h} position={[0, height * st.at, 0]} color={st.color} segments={28} />
-      ))}
-      <Boxes items={fins} color="#3a3a3a" metalness={0.5} />
-      <Boxes items={legItems} color="#2d2f33" />
-
-      {capsule ? (
-        <group position={[0, y4, 0]}>
-          {/* service module, capsule, abort tower */}
-          <Cylinder radius={radius * 0.92} height={top * 0.3} position={[0, top * 0.15, 0]} color={COLORS.offWhite} segments={24} />
-          <Cylinder radius={radius * 0.95} radiusTop={radius * 0.35} height={top * 0.28} position={[0, top * 0.3 + top * 0.14, 0]} color={COLORS.white} segments={24} roughness={0.3} />
-          <Cylinder radius={radius * 0.32} radiusTop={radius * 0.12} height={top * 0.14} position={[0, top * 0.58 + top * 0.07, 0]} color={COLORS.white} segments={16} />
-          <Cylinder radius={radius * 0.08} height={top * 0.22} position={[0, top * 0.72 + top * 0.11, 0]} color="#c0392b" segments={8} />
-          <mesh position={[0, top * 0.94 + top * 0.03, 0]} castShadow>
-            <coneGeometry args={[radius * 0.1, top * 0.12, 8]} />
-            <meshStandardMaterial color="#c0392b" />
-          </mesh>
-        </group>
-      ) : (
+      {lower && (
         <>
-          {fairingRadius > radius && <Cylinder radius={radius} radiusTop={fairingRadius} height={radius * 0.4} position={[0, y4 + radius * 0.2, 0]} color={fairingColor} segments={28} />}
-          <Nose radius={fairingRadius} height={top - (fairingRadius > radius ? radius * 0.4 : 0)} y={y4 + (fairingRadius > radius ? radius * 0.4 : 0)} color={fairingColor} />
+          <Nozzles count={engines} radius={radius} y={nozzle * 0.5} size={nozzle * 0.42 * (engines > 1 ? 0.75 : 1.2)} />
+          <Cylinder radius={radius} height={radius * 0.25} position={[0, y1 + radius * 0.12, 0]} color={COLORS.dark} segments={24} />
+          <Cylinder radius={radius} height={s1} position={[0, y1 + s1 / 2, 0]} color={color} segments={28} roughness={0.45} />
+          {/* raceway: cable tray along the side */}
+          <Box size={[0.05, s1 + inter, 0.09]} position={[radius + 0.02, y1 + (s1 + inter) / 2, 0]} color={COLORS.offWhite} />
+          <Cylinder radius={radius * 1.005} height={inter} position={[0, y2 + inter / 2, 0]} color={accent} segments={28} />
+          <Boxes items={fins} color="#3a3a3a" metalness={0.5} />
+          <Boxes items={legItems} color="#2d2f33" />
         </>
       )}
+      {upper && (
+        <>
+          <Cylinder radius={radius} height={s2} position={[0, y3 + s2 / 2, 0]} color={color} segments={28} roughness={0.45} />
+          <Box size={[0.05, s2, 0.09]} position={[radius + 0.02, y3 + s2 / 2, 0]} color={COLORS.offWhite} />
+          {/* upper stage engine bell, hidden inside the interstage until the stages separate */}
+          {part === 'upper' && (
+            <mesh position={[0, y3 - radius * 0.35, 0]}>
+              <cylinderGeometry args={[radius * 0.2, radius * 0.55, radius * 0.7, 16, 1, true]} />
+              <meshStandardMaterial color="#3b3a38" metalness={0.7} roughness={0.35} side={DoubleSide} />
+            </mesh>
+          )}
+        </>
+      )}
+      {stripes
+        .filter((st) => (height * st.at < y3 ? lower : upper))
+        .map((st) => (
+          <Cylinder key={st.at} radius={radius * 1.006} height={height * st.h} position={[0, height * st.at, 0]} color={st.color} segments={28} />
+        ))}
 
-      {Array.from({ length: boosters }, (_, i) => {
-        const a = (i / boosters) * Math.PI * 2
-        const bx = Math.cos(a) * d
-        const bz = Math.sin(a) * d
+      {upper &&
+        (capsule ? (
+          <group position={[0, y4, 0]}>
+            {/* service module, capsule, abort tower */}
+            <Cylinder radius={radius * 0.92} height={top * 0.3} position={[0, top * 0.15, 0]} color={COLORS.offWhite} segments={24} />
+            <Cylinder radius={radius * 0.95} radiusTop={radius * 0.35} height={top * 0.28} position={[0, top * 0.3 + top * 0.14, 0]} color={COLORS.white} segments={24} roughness={0.3} />
+            <Cylinder radius={radius * 0.32} radiusTop={radius * 0.12} height={top * 0.14} position={[0, top * 0.58 + top * 0.07, 0]} color={COLORS.white} segments={16} />
+            <Cylinder radius={radius * 0.08} height={top * 0.22} position={[0, top * 0.72 + top * 0.11, 0]} color="#c0392b" segments={8} />
+            <mesh position={[0, top * 0.94 + top * 0.03, 0]} castShadow>
+              <coneGeometry args={[radius * 0.1, top * 0.12, 8]} />
+              <meshStandardMaterial color="#c0392b" />
+            </mesh>
+          </group>
+        ) : (
+          <>
+            {fairingRadius > radius && <Cylinder radius={radius} radiusTop={fairingRadius} height={radius * 0.4} position={[0, y4 + radius * 0.2, 0]} color={fairingColor} segments={28} />}
+            <Nose radius={fairingRadius} height={top - (fairingRadius > radius ? radius * 0.4 : 0)} y={y4 + (fairingRadius > radius ? radius * 0.4 : 0)} color={fairingColor} />
+          </>
+        ))}
+
+      {boosterAt.map(({ a, x: bx, z: bz }, i) => {
+        if (!showBooster(i)) return null
         const bn = boosterRadius * 0.7
         return (
           <group key={i} position={[bx, 0, bz]}>
@@ -189,6 +206,90 @@ export function Rocket({
           </group>
         )
       })}
+    </group>
+  )
+}
+
+/** Black and white quarters painted around the body (the Saturn V roll pattern). */
+function RollPattern({ radius, y0, y1, phase = 0 }: { radius: number; y0: number; y1: number; phase?: number }) {
+  const h = y1 - y0
+  return (
+    <>
+      {[0, 1, 2, 3].map((i) => (
+        <mesh key={i} position={[0, y0 + h / 2, 0]} castShadow receiveShadow>
+          <cylinderGeometry args={[radius * 1.004, radius * 1.004, h, 10, 1, true, phase + (i * Math.PI) / 2, Math.PI / 2]} />
+          <meshStandardMaterial color={i % 2 ? COLORS.dark : COLORS.white} roughness={0.45} side={DoubleSide} />
+        </mesh>
+      ))}
+    </>
+  )
+}
+
+/** Thin dark ring around the body: seams between stages. */
+const Seam = ({ radius, y }: { radius: number; y: number }) => <Cylinder radius={radius * 1.006} height={0.03} position={[0, y, 0]} color="#3a3c40" segments={32} />
+
+/**
+ * Saturn V, base at `position`, about 1 unit = 10 m (SATURN_V in lib.ts). First stage (S-IC): five
+ * F-1 engines, engine fairings and fins, roll pattern, black intertank band. Upper stages: S-II, the
+ * narrower S-IVB with its roll pattern and APS pods, instrument unit, spacecraft adapter, Apollo
+ * service and command modules, and the red launch escape tower. `part` splits it like Rocket.
+ */
+export function SaturnV({ position = [0, 0, 0], rotation, part = 'all' }: RocketProps) {
+  const { radius: R, upperRadius: R3, sicTop, siiTop, adapterTop, sivbTop, iuTop, slaTop, smTop, cmTop, height } = SATURN_V
+  const lower = part === 'all' || part === 'stage1'
+  const upper = part === 'all' || part === 'upper'
+  const corners = [0, 1, 2, 3].map((i) => Math.PI / 4 + (i * Math.PI) / 2)
+  return (
+    <group position={position} rotation={rotation}>
+      {lower && (
+        <>
+          {/* five F-1 engines: one in the middle, four around it */}
+          {[null, ...corners].map((a, i) => (
+            <mesh key={i} position={a === null ? [0, 0.29, 0] : [Math.cos(a) * 0.3, 0.29, Math.sin(a) * 0.3]} castShadow>
+              <cylinderGeometry args={[0.07, 0.17, 0.58, 16, 1, true]} />
+              <meshStandardMaterial color="#2f2e2c" metalness={0.6} roughness={0.4} side={DoubleSide} />
+            </mesh>
+          ))}
+          <Cylinder radius={R} height={0.12} position={[0, 0.64, 0]} color={COLORS.dark} segments={32} />
+          {corners.map((a) => (
+            <group key={a} rotation={[0, -a, 0]}>
+              {/* engine fairing and fin */}
+              <Cylinder radius={0.17} radiusTop={0.12} height={0.65} position={[0.42, 0.85, 0]} color="#2d2f33" segments={14} />
+              <Box size={[0.42, 0.75, 0.04]} position={[0.66, 0.8, 0]} color={COLORS.offWhite} />
+            </group>
+          ))}
+          <Cylinder radius={R} height={sicTop - 0.7} position={[0, (0.7 + sicTop) / 2, 0]} color={COLORS.white} segments={32} roughness={0.45} />
+          <RollPattern radius={R} y0={0.7} y1={1.35} />
+          <Cylinder radius={R * 1.004} height={0.25} position={[0, 2.48, 0]} color={COLORS.dark} segments={32} />
+          <RollPattern radius={R} y0={sicTop - 0.26} y1={sicTop} phase={Math.PI / 2} />
+        </>
+      )}
+      {upper && (
+        <>
+          <Cylinder radius={R} height={siiTop - sicTop} position={[0, (sicTop + siiTop) / 2, 0]} color={COLORS.white} segments={32} roughness={0.45} />
+          <Seam radius={R} y={sicTop + 0.3} />
+          <Seam radius={R} y={siiTop - 0.25} />
+          {/* S-IVB: narrower, on a conical adapter */}
+          <Cylinder radius={R} radiusTop={R3} height={adapterTop - siiTop} position={[0, (siiTop + adapterTop) / 2, 0]} color={COLORS.white} segments={32} roughness={0.45} />
+          <Cylinder radius={R3} height={sivbTop - adapterTop} position={[0, (adapterTop + sivbTop) / 2, 0]} color={COLORS.white} segments={28} roughness={0.45} />
+          <RollPattern radius={R3} y0={adapterTop} y1={adapterTop + 0.32} />
+          {[-1, 1].map((s) => (
+            <Box key={s} size={[0.08, 0.2, 0.15]} position={[s * (R3 + 0.03), adapterTop + 0.16, 0]} color="#d8d6d0" />
+          ))}
+          <Cylinder radius={R3 * 1.005} height={iuTop - sivbTop} position={[0, (sivbTop + iuTop) / 2, 0]} color="#c9c9c6" segments={28} />
+          {/* spacecraft adapter, service module, command module */}
+          <Cylinder radius={R3} radiusTop={0.2} height={slaTop - iuTop} position={[0, (iuTop + slaTop) / 2, 0]} color="#e6e4dd" segments={28} roughness={0.4} />
+          <Cylinder radius={0.2} height={smTop - slaTop} position={[0, (slaTop + smTop) / 2, 0]} color="#d4d6d9" segments={24} metalness={0.4} roughness={0.35} />
+          <Cylinder radius={0.2} radiusTop={0.05} height={cmTop - smTop} position={[0, (smTop + cmTop) / 2, 0]} color="#f2f2ee" segments={24} roughness={0.3} />
+          {/* launch escape tower and motor */}
+          <Cylinder radius={0.07} radiusTop={0.035} height={0.44} position={[0, cmTop + 0.22, 0]} color={COLORS.tower} segments={4} />
+          <Cylinder radius={0.05} height={0.36} position={[0, cmTop + 0.62, 0]} color="#e9e7e1" segments={12} />
+          <mesh position={[0, (cmTop + 0.8 + height) / 2, 0]} castShadow>
+            <coneGeometry args={[0.05, height - cmTop - 0.8, 12]} />
+            <meshStandardMaterial color="#c0392b" />
+          </mesh>
+        </>
+      )}
     </group>
   )
 }
@@ -271,12 +372,12 @@ export function Crawler({ position = [0, 0, 0], rotationY = 0, children }: { pos
 export const ML_DECK = 0.8
 
 /** Mobile launcher: two-story platform with a tall umbilical tower; children stand on the deck. */
-export function MobileLauncher({ towerHeight = 12, arms = [], children }: { towerHeight?: number; arms?: Arm[]; children?: ReactNode }) {
+export function MobileLauncher({ towerHeight = 12, towerColor = '#6f757d', arms = [], children }: { towerHeight?: number; towerColor?: string; arms?: Arm[]; children?: ReactNode }) {
   return (
     <group>
       <Building size={[5, ML_DECK, 4.4]} position={[0, 0, 0]} color="#7e848b" />
       <Box size={[1.6, 0.02, 1.6]} position={[0, ML_DECK + 0.01, 0]} color={COLORS.dark} />
-      <LatticeTower position={[2.2, ML_DECK, 0]} height={towerHeight} width={1.5} color="#6f757d" arms={arms} mast={0} crane />
+      <LatticeTower position={[2.2, ML_DECK, 0]} height={towerHeight} width={1.5} color={towerColor} arms={arms} mast={0} crane />
       <group position={[0, ML_DECK, 0]}>{children}</group>
     </group>
   )

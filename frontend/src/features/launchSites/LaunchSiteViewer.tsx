@@ -7,6 +7,9 @@ import { KennedyModel } from './models/KennedyModel'
 import { VandenbergModel } from './models/VandenbergModel'
 import { WallopsModel } from './models/WallopsModel'
 import { formatCoord, nearbySites, siteById, type LaunchSiteId } from './sites'
+import { LaunchDirector } from './launch/LaunchDirector'
+import { LaunchClock, LaunchPanel } from './launch/LaunchPanel'
+import { useLaunchStore } from './launch/launchStore'
 import styles from './LaunchSiteViewer.module.css'
 
 const MODELS: Record<LaunchSiteId, ComponentType> = {
@@ -52,6 +55,13 @@ function ViewerWindow({ siteId, onClose }: { siteId: LaunchSiteId; onClose: () =
   const group = nearbySites(siteId) // sites sharing the clicked dot, one under another
   const active = siteById(activeId)
   const Model = MODELS[activeId]
+
+  // a launch belongs to the model it started in: stop it when another site is shown or the window closes
+  const resetLaunch = useLaunchStore((s) => s.reset)
+  useEffect(() => {
+    resetLaunch()
+    return resetLaunch
+  }, [activeId, resetLaunch])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -107,7 +117,10 @@ function ViewerWindow({ siteId, onClose }: { siteId: LaunchSiteId; onClose: () =
             <Model key={activeId} />
             <OrbitControls makeDefault autoRotate autoRotateSpeed={0.35} minDistance={4} maxDistance={220} maxPolarAngle={Math.PI / 2.08} />
             <ResetView view={VIEWS[activeId]} />
+            <LaunchDirector viewKey={activeId} />
           </Canvas>
+          <LaunchClock />
+          <LaunchPanel key={activeId} pads={active.pads} />
           <p className={styles.hint}>Drag to rotate · scroll to zoom · right-drag to pan</p>
         </div>
 
@@ -118,7 +131,7 @@ function ViewerWindow({ siteId, onClose }: { siteId: LaunchSiteId; onClose: () =
               <li key={f}>{f}</li>
             ))}
           </ul>
-          <p className={styles.note}>Simplified model built from basic shapes: buildings and rockets roughly to scale, distances between them shortened.</p>
+          <p className={styles.note}>Simplified model built from basic shapes: buildings and rockets roughly to scale, distances between them shortened. The Saturn V launch shows the last 3 s of the countdown and the first 7 s of flight.</p>
         </div>
       </div>
     </section>

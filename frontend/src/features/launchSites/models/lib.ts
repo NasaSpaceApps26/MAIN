@@ -50,3 +50,49 @@ export function along(a: [number, number], b: [number, number], count: number, j
     return [a[0] + (b[0] - a[0]) * u + (rand() - 0.5) * jitter, a[1] + (b[1] - a[1]) * u + (rand() - 0.5) * jitter]
   })
 }
+
+/** Heights of the rocket's sections and where its boosters stand, in the rocket's own frame. */
+export function rocketDims({
+  height = 7,
+  radius = 0.3,
+  boosters = 0,
+  boosterRadius = radius * 0.42,
+  boosterHeight = 0.55,
+}: {
+  height?: number
+  radius?: number
+  boosters?: number
+  boosterRadius?: number
+  boosterHeight?: number
+}) {
+  const nozzle = radius * 0.55
+  const s1 = height * 0.56
+  const inter = height * 0.05
+  const s2 = height * 0.15
+  const y1 = nozzle
+  const y2 = y1 + s1
+  const y3 = y2 + inter
+  const y4 = y3 + s2
+  const d = radius + boosterRadius * 1.02
+  const boosterAt = Array.from({ length: boosters }, (_, i) => {
+    const a = (i / boosters) * Math.PI * 2
+    return { a, x: Math.cos(a) * d, z: Math.sin(a) * d }
+  })
+  return { height, radius, nozzle, s1, inter, s2, top: height - s1 - inter - s2 - nozzle, y1, y2, y3, y4, d, boosterRadius, bh: height * boosterHeight, boosterAt }
+}
+
+/** Saturn V heights (from its base) and radii, model units: 110.6 m tall, 10.1 m wide. */
+export const SATURN_V = {
+  height: 11.06,
+  radius: 0.5, // first and second stage
+  upperRadius: 0.33, // third stage (S-IVB)
+  engines: 5,
+  sicTop: 4.21,
+  siiTop: 6.69,
+  adapterTop: 7.15,
+  sivbTop: 8.47,
+  iuTop: 8.56,
+  slaTop: 9.4,
+  smTop: 9.83,
+  cmTop: 10.18,
+}
