@@ -1,0 +1,4 @@
+[
+  { "id": "ksc-39a", "name": "Kennedy Space Center LC-39A", "lat_deg": 28.6084, "lon_deg": -80.6043 },
+  { "id": "baikonur", "name": "Baikonur Cosmodrome", "lat_deg": 45.965, "lon_deg": 63.305 }
+]
