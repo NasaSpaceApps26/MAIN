@@ -5,9 +5,13 @@ import { Html } from '@react-three/drei'
 import { Vector3, type Group } from 'three'
 import type { Body, StateSample } from '../../api/types'
 import { useSimStore } from '../../store/simStore'
-import { LaunchSites } from './LaunchSites'
-import { positionAt } from './orbitMath'
-import { radiusToUnits } from './scale'
+import { TEXTURE_IDS } from './bodyTextures'
+import { TiledSurface } from './EarthMoon/TiledSurface'
+import { LaunchSites } from './LaunchSites' // <-- kropki
+import { drawnPositionAt } from './orbitMath'
+import { PlainSurface, TexturedSurface } from './PlanetSurface'
+import { moonOrbitScale, radiusToUnits, spheroidRadii, type Shape } from './scale'
+import { SiteMarkers } from './SiteMarkers'
 
 const labelStyle = {
   transform: 'translate(-50%, 4px)', // centred, just under the point it's attached to
@@ -57,7 +61,7 @@ export function CelestialBody({ body, samples, parentSamples }: Props) {
   const labelAnchor = useRef<Group>(null) // where the name label hangs
   const label = useRef<HTMLButtonElement>(null)
   const selectBody = useSimStore((s) => s.selectBody)
-  const radius = radiusToUnits(body.radius_km, body.id)
+  const planetSize = useSimStore((s) => s.planetSize)
 
   // Real shape: wider at the equator than pole to pole (Saturn ~10%, Jupiter ~6.5%)
   const radius = radiusToUnits(body.radius_km, body.id, planetSize)
@@ -108,32 +112,49 @@ export function CelestialBody({ body, samples, parentSamples }: Props) {
         ref={spin}
         onClick={(e) => {
           e.stopPropagation()
-          selectBody(body.id)
-          if (body.id === 'moon' && e.shiftKey && e.delta < 5 && terrainReady() && spin.current) {
+          const sim = useSimStore.getState()
+          // "Pick on Moon" mode (MissionPanel): a click on the Moon sets the landing point and does
+          // nothing else, so the camera stays put. Drags (e.delta) are camera moves, not picks.
+          if (body.id === 'moon' && sim.pickingLanding) {
+            if (e.delta >= 5 || !terrainReady() || !spin.current) return
             const object = e.object as typeof e.object & { geometry?: { userData: { surfaceTriangles?: number } } }
             const surfaceTriangles = object.geometry?.userData.surfaceTriangles
             if (surfaceTriangles !== undefined && (e.faceIndex ?? 0) >= surfaceTriangles) return
             const local = spin.current.worldToLocal(e.point.clone())
             const latDeg = Math.atan2(local.y, Math.hypot(local.x, local.z)) * 180 / Math.PI
             const lonDeg = Math.atan2(-local.z, local.x) * 180 / Math.PI
-            useSimStore.getState().setMoonPoint({
-              latDeg, lonDeg, elevationM: moonHeight(latDeg, lonDeg), datasetId: terrainDataset(),
+            // into the active landing slot; siteId null = a point of your own, not one of the named sites
+            sim.setLandingPoint({
+              latDeg, lonDeg, elevationM: moonHeight(latDeg, lonDeg), datasetId: terrainDataset(), siteId: null,
             })
+            sim.setPickingLanding(false) // one click, one point
+            return
           }
+          selectBody(body.id)
         }}
       >
-        <sphereGeometry args={[radius, 48, 48]} />
-        {body.id === 'sun' ? (
-          <meshBasicMaterial color={body.color} />
+        {body.id === 'earth' || body.id === 'moon' ? (
+          // NASA imagery that gets sharper as the camera gets closer
+          <TiledSurface
+            bodyId={body.id}
+            shape={shape}
+            flattening={flattening}
+            color={body.color}
+          />
+        ) : TEXTURE_IDS.has(body.id) ? (
+          <Suspense fallback={plainSurface}>
+            <TexturedSurface id={body.id} shape={shape} glows={glows} />
+          </Suspense>
         ) : (
           plainSurface
         )}
-        {/* Launch sites on Earth, landing sites on the Moon. Inside `spin`, so they turn with the surface. */}
-        {(body.id === 'earth' || body.id === 'moon') && (
-          <SiteMarkers bodyId={body.id} equatorialRadius={equatorial} flattening={flattening} />
+        {/* Landing sites on the Moon. Inside `spin`, so they turn with the surface. */}
+        {body.id === 'moon' && (
+          <SiteMarkers bodyId="moon" equatorialRadius={equatorial} flattening={flattening} />
         )}
-        {body.id === 'earth' && <LaunchSites radius={radius} />}
-      </mesh>
+        {/* Launch sites on Earth: only the ones with a 3D model. Click a dot to choose it for the mission. */}
+        {body.id === 'earth' && <LaunchSites radius={equatorial} />}
+      </group>
       {/* At true scale planets are smaller than a pixel, so a clickable label marks each one */}
       <group ref={labelAnchor}>
         <Html zIndexRange={[0, 0]}>

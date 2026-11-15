@@ -22,6 +22,9 @@ const DEG = 180 / Math.PI
 const DOWN = new Vector3(0, -1, 0)
 const ray = new Raycaster()
 
+/** The tracking camera lets go after this many seconds and flies back to the normal view. */
+const FOLLOW_MAX_S = 10
+
 /** Terrain given as a height function over a rectangle centred on the origin (see Terrain). */
 type Heightfield = { heightAt: (x: number, z: number) => number; size: [number, number] }
 
@@ -130,6 +133,8 @@ class CameraDirector {
   private fog: Fog | null = null
   private fogNear = 0
   private fogFar = 0
+  private followS = 0 // how long the camera has been following this launch, in seconds
+  private timedOut = false // followed for FOLLOW_MAX_S: leave the camera alone for the rest of this launch
 
   /** Another site was opened: drop the launch camera at once (the viewer resets the view itself). */
   drop(camera: PerspectiveCamera, controls: Controls | null) {
@@ -141,6 +146,8 @@ class CameraDirector {
     }
     this.pick = null
     this.fog = null
+    this.followS = 0
+    this.timedOut = false
   }
 
   update(
@@ -151,7 +158,17 @@ class CameraDirector {
     follow: boolean,
   ) {
     const dt = Math.min(rawDt, 0.05)
-    const want = tracker.active && follow
+    const asked = tracker.active && follow
+    if (!asked) {
+      // rocket gone or the box unticked: the next launch (or ticking it again) follows again
+      this.followS = 0
+      this.timedOut = false
+    } else if (this.mode === 'in') {
+      this.followS += rawDt
+      if (this.followS >= FOLLOW_MAX_S) this.timedOut = true
+    }
+    // after FOLLOW_MAX_S the camera flies back to where the user was, even with the box ticked
+    const want = asked && !this.timedOut
     this.updateFog(dt, camera, scene, want)
     if (want && this.mode !== 'in') {
       if (this.mode === 'free') {

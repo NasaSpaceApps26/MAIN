@@ -1,0 +1,282 @@
+/* Large window over the solar system, like the launch site window */
+.window {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  translate: -50% -50%;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  width: min(1180px, calc(100% - 32px));
+  height: min(820px, calc(100% - 32px));
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(4, 12, 34, 0.95);
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.6);
+  overflow: hidden;
+  color: var(--text);
+  font-size: 12px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.title {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 14px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+}
+
+.subtitle {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  letter-spacing: 0;
+  color: var(--text-dim);
+}
+
+.close {
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  font-size: 22px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.close:hover {
+  color: var(--text);
+}
+
+.empty {
+  padding: 24px;
+  color: var(--text-dim);
+}
+
+/* all landing points on top ; map | flight, sites, power ; the sky chart across the bottom */
+.body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
+  grid-template-areas:
+    'compare compare'
+    'area side'
+    'wide wide';
+  align-items: start;
+  gap: 12px;
+  padding: 12px;
+}
+
+.compare {
+  grid-area: compare;
+  overflow-x: auto;
+}
+
+.area {
+  grid-area: area;
+}
+
+.side {
+  grid-area: side;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.wide {
+  grid-area: wide;
+}
+
+.card {
+  min-width: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(2, 8, 24, 0.6);
+}
+
+.cardTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 8px;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.badge {
+  padding: 1px 7px;
+  border: 1px solid #ffb070;
+  border-radius: 99px;
+  color: #ffb070;
+  font-family: var(--font-mono);
+  font-size: 10px;
+  letter-spacing: 0;
+  text-transform: none;
+}
+
+.facts {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 3px 14px;
+  margin: 8px 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.facts dt {
+  color: var(--text-dim);
+}
+
+.facts dd {
+  margin: 0;
+}
+
+.good {
+  color: #7dffa8;
+}
+
+.bad {
+  color: #ff8a7a;
+}
+
+.note,
+.muted {
+  margin: 6px 0 0;
+  color: var(--text-dim);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.error {
+  margin: 0;
+  color: #ff8a7a;
+}
+
+.button {
+  margin-top: 8px;
+  padding: 4px 10px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.button:hover {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums;
+}
+
+.table th {
+  padding: 3px 6px 3px 0;
+  border-bottom: 1px solid var(--line);
+  color: var(--text-dim);
+  font-weight: 400;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.table td {
+  padding: 4px 6px 4px 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+}
+
+/* landing point rows: click to show that point in detail */
+.clickable tbody tr {
+  cursor: pointer;
+}
+
+.clickable tbody tr:hover {
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.activeRow td {
+  background: rgba(255, 210, 63, 0.1);
+}
+
+.activeRow td:first-child {
+  box-shadow: inset 3px 0 #ffd23f;
+  padding-left: 6px;
+}
+
+.summary {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  line-height: 1.45;
+}
+
+.summary li {
+  padding-left: 10px;
+  border-left: 3px solid var(--line);
+}
+
+.sun.okLine {
+  border-left-color: #ffd23f;
+}
+
+.earth.okLine {
+  border-left-color: #5cc8ff;
+}
+
+.both.okLine {
+  border-left-color: #7dffa8;
+}
+
+.warnLine {
+  border-left-color: #ff8a7a;
+}
+
+.cursor {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  margin: 4px 0 10px;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.cursor .button {
+  margin: 0;
+}
+
+/* narrow windows: one column */
+@media (max-width: 860px) {
+  .body {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas:
+      'compare'
+      'area'
+      'side'
+      'wide';
+  }
+}

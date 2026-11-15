@@ -92,7 +92,6 @@ export function SurfaceReadoutTracker({ bodies, year }: Props) {
 /** Outside the <Canvas>: the box in the bottom-right corner that shows the numbers */
 export function SurfaceReadoutPanel() {
   const readout = useSimStore((s) => s.readout)
-  const picked = useSimStore((s) => s.pickedMoonPoint)
   if (!readout) return null
   const { bodyName, altitudeKm, latDeg, lonDeg, mapLevel, metresPerPixel } = readout
   const lat = `${Math.abs(latDeg).toFixed(2)}°${latDeg >= 0 ? 'N' : 'S'}`
@@ -106,12 +105,7 @@ export function SurfaceReadoutPanel() {
       <div>Below {lat} {lon}</div>
       {readout.elevationM !== undefined && <div>Ground: {readout.elevationM.toFixed(1)} m · LOLA ~1.9 km grid</div>}
       {readout.terrainAvailable === false && <div>Terrain loading…</div>}
-      {picked && <div style={{ borderTop: '1px solid var(--line)', marginTop: 6 }}>
-        <div>Picked: {picked.latDeg.toFixed(5)}°, {picked.lonDeg.toFixed(5)}°</div>
-        <div>Elevation: {picked.elevationM.toFixed(1)} m</div>
-        <button style={{ pointerEvents: 'auto' }} onClick={() => useSimStore.getState().setMoonPoint(null)}>Clear point</button>
-      </div>}
-      <div>Shift + click Moon: pick terrain point</div>
+      {/* The landing point is set and shown in the mission panel at the bottom */}
       {mapLevel !== undefined && metresPerPixel !== undefined && (
         <div>
           Map level {mapLevel} · {formatMetres(metresPerPixel)} per pixel

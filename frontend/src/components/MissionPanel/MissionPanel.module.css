@@ -1,0 +1,320 @@
+/* Mission planner, bottom centre of the space view */
+.panel {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  translate: -50% 0;
+  z-index: 2;
+  /* 540px = room on both sides for the altitude box in the bottom-right corner */
+  width: min(700px, calc(100% - 540px));
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(4, 12, 34, 0.85);
+  backdrop-filter: blur(4px);
+  color: var(--text);
+  font-size: 12px;
+}
+
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.status {
+  font-size: 11px;
+  color: var(--text-dim);
+}
+
+.ok {
+  color: #7dffa8;
+}
+
+/* One line per step: label · main control · coordinates */
+.row {
+  display: grid;
+  grid-template-columns: 120px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.rowLabel {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.step {
+  display: grid;
+  place-items: center;
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--line);
+  border-radius: 50%;
+  font-size: 10px;
+}
+
+.stepDone {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.select,
+.input {
+  min-width: 0;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(2, 6, 18, 0.8);
+  color: var(--text);
+  font: inherit;
+}
+
+.select:focus-visible,
+.input:focus-visible,
+.small:focus-visible,
+.add:focus-visible,
+.remove:focus-visible,
+.go:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Launch site slots: one per site to compare, then ＋ */
+.slots {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+
+.slot {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  max-width: 100%;
+  border: 1px solid transparent;
+  border-radius: 5px;
+}
+
+.slot .select {
+  max-width: 170px;
+}
+
+/* a landing point slot: its name, click to make it the one being edited */
+.chip {
+  max-width: 130px;
+  overflow: hidden;
+  padding: 4px 6px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: rgba(2, 6, 18, 0.8);
+  color: var(--text);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.chip:hover {
+  border-color: var(--accent);
+}
+
+.chip:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* the slot a click on a red dot (or a pick on the Moon) fills: yellow, like its marker */
+.slotActive {
+  border-color: #ffd23f;
+}
+
+.remove,
+.add {
+  display: grid;
+  place-items: center;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  cursor: pointer;
+}
+
+.remove {
+  width: 20px;
+  font-size: 15px;
+}
+
+.remove:hover {
+  color: #ff8a7a;
+}
+
+.add {
+  width: 26px;
+  height: 24px;
+  border: 1px dashed var(--line);
+  border-radius: 4px;
+  font-size: 14px;
+}
+
+.add:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.add:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+
+.coords {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.field {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--text-dim);
+  white-space: nowrap;
+}
+
+.field .input {
+  width: 72px;
+}
+
+.field .time {
+  width: 150px;
+  color-scheme: dark;
+}
+
+.small {
+  padding: 4px 8px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: none;
+  color: var(--text);
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.small:hover {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.picking {
+  border-color: #ffd23f;
+  background: rgba(255, 210, 63, 0.15);
+  color: #ffd23f;
+}
+
+/* under the coordinates, so it doesn't push the row around */
+.error {
+  position: absolute;
+  top: 100%;
+  right: 0;
+  margin-top: 2px;
+  color: #ff8a7a;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 2px;
+}
+
+.note {
+  margin: 0;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.actions {
+  display: flex;
+  flex: none;
+  gap: 6px;
+}
+
+.go {
+  padding: 6px 12px;
+  border: 1px solid var(--accent);
+  border-radius: 4px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.go:hover:not(:disabled) {
+  background: rgba(92, 200, 255, 0.25);
+}
+
+.results {
+  border-color: #7dffa8;
+  background: rgba(125, 255, 168, 0.1);
+  color: #7dffa8;
+}
+
+.results:hover:not(:disabled) {
+  background: rgba(125, 255, 168, 0.2);
+}
+
+.go:disabled {
+  border-color: var(--line);
+  background: none;
+  color: var(--text-dim);
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* Narrow windows: use the full width, over the altitude box */
+@media (max-width: 1100px) {
+  .panel {
+    width: min(700px, calc(100% - 32px));
+  }
+}
+
+/* Small screens: steps stack */
+@media (max-width: 760px) {
+  .panel {
+    bottom: 8px;
+  }
+
+  .row {
+    grid-template-columns: 1fr;
+    gap: 4px;
+  }
+
+  .footer {
+    flex-direction: column;
+    align-items: stretch;
+  }
+}

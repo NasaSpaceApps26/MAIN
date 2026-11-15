@@ -1,5 +1,6 @@
 import type { MoonPoint } from '../components/SolarSystem/EarthMoon/moonTerrain'
 import { create } from 'zustand'
+import type { RocketId } from '../features/mission/flightPlan'
 import type { LaunchSiteId } from '../features/launchSites/sites'
 
 /** What the camera is above: shown in the corner of the 3D view (see SurfaceReadout) */
@@ -17,18 +18,33 @@ export type SurfaceReadout = {
 /** The camera positions of the buttons in the top-right corner (see CameraViews) */
 export type CameraView = 'top' | 'angled' | 'earthMoon'
 
+/** A landing point on the Moon. siteId = the named lunar site it was taken from, null = a point of your own. */
+export type LandingPoint = MoonPoint & { siteId: string | null }
+
+const APOLLO_11_LAUNCH = Date.UTC(1969, 6, 16, 13, 32)
+export const MAX_LANDING_POINTS = 6
+
 type SimState = {
   simTimeMs: number
   isPlaying: boolean
   timeScale: number // simulated seconds per real second
-  pickedMoonPoint: MoonPoint | null
-  setMoonPoint: (point: MoonPoint | null) => void
   selectedBodyId: string | null
   planetSize: number // how many times bigger planets are drawn. The choices are SIZE_OPTIONS in SolarSystem/scale.ts
   shadows: boolean // false: every body is lit evenly, no night side
   departureSiteId: string | null
-  landingSiteId: string | null
+  readout: SurfaceReadout | null
   launchSiteId: LaunchSiteId | null // launch site whose 3D model window is open
+  // --- mission (MissionPanel at the bottom, MissionResults window) ---
+  missionSites: (LaunchSiteId | null)[] // launch sites to compare, one slot each (always at least one slot)
+  activeSiteSlot: number // the slot a click on a red dot fills
+  landingPoints: (LandingPoint | null)[] // landing points to compare, one slot each (always at least one slot)
+  activeLandingSlot: number // the slot a pick on the Moon fills
+  rocketId: RocketId
+  launchTimeMs: number // planned liftoff, UTC ms
+  pickingLanding: boolean // "Pick on Moon" mode: the next click on the Moon sets the active landing point
+  resultsOpen: boolean // the mission results window
+  cameraRequest: { view: CameraView; n: number } | null // n goes up on every click, so the same button works twice
+  requestCameraView: (view: CameraView) => void
   setSimTime: (t: number) => void
   advance: (realDeltaSec: number) => void
   togglePlay: () => void
@@ -37,22 +53,57 @@ type SimState = {
   setPlanetSize: (size: number) => void
   setShadows: (on: boolean) => void
   setDepartureSite: (id: string | null) => void
-  setLandingSite: (id: string | null) => void
+  setReadout: (readout: SurfaceReadout | null) => void
   openLaunchSite: (id: LaunchSiteId | null) => void
+  setMissionSiteAt: (slot: number, id: LaunchSiteId | null) => void
+  chooseLaunchSite: (id: LaunchSiteId) => void
+  addMissionSiteSlot: () => void
+  removeMissionSiteSlot: (slot: number) => void
+  setActiveSiteSlot: (slot: number) => void
+  setLandingPoint: (point: LandingPoint | null) => void
+  addLandingSlot: () => void
+  removeLandingSlot: (slot: number) => void
+  setActiveLandingSlot: (slot: number) => void
+  setRocket: (id: RocketId) => void
+  setLaunchTime: (t: number) => void
+  setPickingLanding: (on: boolean) => void
+  setResultsOpen: (open: boolean) => void
+}
+
+type MissionFields = Pick<SimState, 'missionSites' | 'landingPoints'>
+
+/** A rocket may only launch once the mission has a launch site and a landing point. */
+export const missionReady = (s: MissionFields) =>
+  s.missionSites.some((id) => id !== null) && s.landingPoints.some((p) => p !== null)
+
+/** Removes one slot from a list of slots; the last slot is emptied instead, so one always stays. */
+function withoutSlot<T>(slots: (T | null)[], active: number, slot: number) {
+  if (slots.length <= 1) return { slots: [null], active: 0 }
+  const rest = slots.filter((_, i) => i !== slot)
+  return { slots: rest, active: Math.min(active > slot ? active - 1 : active, rest.length - 1) }
 }
 
 export const useSimStore = create<SimState>()((set, get) => ({
-  simTimeMs: Date.UTC(1969, 6, 16, 13, 32), // Apollo 11 launch
+  simTimeMs: APOLLO_11_LAUNCH,
   isPlaying: false,
   timeScale: 43_200, // 12 h per second, the slowest speed
-  pickedMoonPoint: null,
-  setMoonPoint: (point) => set({ pickedMoonPoint: point }),
   selectedBodyId: null,
   planetSize: 250, // the standard size
   shadows: true,
   departureSiteId: null,
-  landingSiteId: null,
+  readout: null,
   launchSiteId: null,
+  missionSites: [null],
+  activeSiteSlot: 0,
+  landingPoints: [null],
+  activeLandingSlot: 0,
+  rocketId: 'saturnV',
+  launchTimeMs: APOLLO_11_LAUNCH,
+  pickingLanding: false,
+  resultsOpen: false,
+  cameraRequest: null,
+  requestCameraView: (view) =>
+    set((s) => ({ cameraRequest: { view, n: (s.cameraRequest?.n ?? 0) + 1 } })),
   setSimTime: (t) => set({ simTimeMs: t }),
   advance: (dt) => {
     const { isPlaying, simTimeMs, timeScale } = get()
@@ -64,6 +115,51 @@ export const useSimStore = create<SimState>()((set, get) => ({
   setPlanetSize: (size) => set({ planetSize: size }),
   setShadows: (on) => set({ shadows: on }),
   setDepartureSite: (id) => set({ departureSiteId: id }),
-  setLandingSite: (id) => set({ landingSiteId: id }),
+  setReadout: (readout) => set({ readout }),
   openLaunchSite: (id) => set({ launchSiteId: id }),
+
+  // --- launch sites ---
+  setMissionSiteAt: (slot, id) =>
+    set((s) => ({ missionSites: s.missionSites.map((old, i) => (i === slot ? id : old)), activeSiteSlot: slot })),
+  // A red dot on Earth: fills the active slot, or jumps to the slot that already holds that site
+  chooseLaunchSite: (id) =>
+    set((s) => {
+      const existing = s.missionSites.indexOf(id)
+      if (existing !== -1) return { activeSiteSlot: existing }
+      return { missionSites: s.missionSites.map((old, i) => (i === s.activeSiteSlot ? id : old)) }
+    }),
+  addMissionSiteSlot: () =>
+    set((s) => ({ missionSites: [...s.missionSites, null], activeSiteSlot: s.missionSites.length })),
+  removeMissionSiteSlot: (slot) =>
+    set((s) => {
+      const { slots, active } = withoutSlot(s.missionSites, s.activeSiteSlot, slot)
+      return { missionSites: slots, activeSiteSlot: active }
+    }),
+  setActiveSiteSlot: (slot) => set({ activeSiteSlot: slot }),
+
+  // --- landing points ---
+  // Into the active slot; a named lunar site that is already in another slot just makes that slot active
+  setLandingPoint: (point) =>
+    set((s) => {
+      const existing = point?.siteId ? s.landingPoints.findIndex((p) => p?.siteId === point.siteId) : -1
+      if (existing !== -1) return { activeLandingSlot: existing }
+      return { landingPoints: s.landingPoints.map((old, i) => (i === s.activeLandingSlot ? point : old)) }
+    }),
+  addLandingSlot: () =>
+    set((s) =>
+      s.landingPoints.length >= MAX_LANDING_POINTS
+        ? {}
+        : { landingPoints: [...s.landingPoints, null], activeLandingSlot: s.landingPoints.length },
+    ),
+  removeLandingSlot: (slot) =>
+    set((s) => {
+      const { slots, active } = withoutSlot(s.landingPoints, s.activeLandingSlot, slot)
+      return { landingPoints: slots, activeLandingSlot: active }
+    }),
+  setActiveLandingSlot: (slot) => set({ activeLandingSlot: slot }),
+
+  setRocket: (id) => set({ rocketId: id }),
+  setLaunchTime: (t) => set({ launchTimeMs: t }),
+  setPickingLanding: (on) => set({ pickingLanding: on }),
+  setResultsOpen: (open) => set({ resultsOpen: open }),
 }))

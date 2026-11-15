@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { missionReady, useSimStore } from '../../../store/simStore'
 import type { LaunchPad } from '../sites'
 import { useLaunchStore } from './launchStore'
 import styles from './LaunchPanel.module.css'
@@ -20,6 +21,9 @@ export function LaunchPanel({ pads }: { pads: readonly LaunchPad[] }) {
   const launch = useLaunchStore((s) => s.launch)
   const reset = useLaunchStore((s) => s.reset)
   const setFollow = useLaunchStore((s) => s.setFollow)
+  // locked until the mission panel has a launch site and a landing point on the Moon
+  const ready = useSimStore(missionReady)
+  const hasSite = useSimStore((s) => s.missionSites.some((id) => id !== null))
   if (pads.length === 0) return null
 
   const busy = activePad !== null
@@ -50,9 +54,23 @@ export function LaunchPanel({ pads }: { pads: readonly LaunchPad[] }) {
       {pads.length === 1 && <p className={styles.single}>{pads[0].rocket}</p>}
 
       {phase === 'idle' ? (
-        <button type="button" className={styles.launch} onClick={() => current && launch(current)}>
-          <span aria-hidden>▲</span> Launch
-        </button>
+        <>
+          <button
+            type="button"
+            className={styles.launch}
+            disabled={!ready}
+            onClick={() => ready && current && launch(current)}
+          >
+            <span aria-hidden>{ready ? '▲' : '🔒'}</span> Launch
+          </button>
+          {!ready && (
+            <p className={styles.locked}>
+              {hasSite
+                ? 'Set the landing point on the Moon in the mission panel first.'
+                : 'Choose a launch site and a landing point in the mission panel first.'}
+            </p>
+          )}
+        </>
       ) : (
         <button type="button" className={styles.reset} onClick={reset}>
           {phase === 'countdown' ? 'Scrub launch' : phase === 'done' ? 'Next rocket' : 'Reset'}

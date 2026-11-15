@@ -3,6 +3,7 @@ import { Canvas } from '@react-three/fiber'
 import { Stars } from '@react-three/drei'
 import { useBodies, useEphemerisYear, useOrbits } from '../../api/hooks'
 import { useSimStore } from '../../store/simStore'
+import { MissionPanel } from '../MissionPanel/MissionPanel'
 import { CameraFollow } from './CameraFollow'
 import { CameraViewButtons, CameraViewDriver } from './CameraViews'
 import { CelestialBody } from './CelestialBody'
@@ -79,6 +80,7 @@ export function SolarSystem() {
 
       <SurfaceReadoutPanel />
       <CameraViewButtons />
+      <MissionPanel />
 
       {(isFetching || isError) && (
         <div style={statusStyle}>
