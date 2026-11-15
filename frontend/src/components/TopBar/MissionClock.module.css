@@ -21,7 +21,8 @@
 }
 
 .date {
-  font-size: 13px;
+  font-size: 18px;
+  font-variant-numeric: tabular-nums;
   color: var(--text-dim);
 }
 

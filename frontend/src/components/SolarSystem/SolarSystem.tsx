@@ -1,25 +1,31 @@
 import { useEffect, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
-import { OrbitControls, Stars } from '@react-three/drei'
+import { Stars } from '@react-three/drei'
 import { useBodies, useEphemerisYear, useOrbits } from '../../api/hooks'
 import { useSimStore } from '../../store/simStore'
+import { MissionPanel } from '../MissionPanel/MissionPanel'
 import { CameraFollow } from './CameraFollow'
+import { CameraViewButtons, CameraViewDriver } from './CameraViews'
 import { CelestialBody } from './CelestialBody'
 import { ClockDriver } from './ClockDriver'
+import { FlyCamera } from './FlyCamera'
 import { Lights } from './Lights'
 import { OrbitLine } from './OrbitLine'
 import { MissionScene } from '../../features/mission/MissionScene'
+import { parentSamplesOf } from './orbitMath'
+import { moonOrbitScale } from './scale'
+import { SurfaceReadoutPanel, SurfaceReadoutTracker } from './SurfaceReadout'
 
 const DAY_MS = 86_400_000
 const WINDOW_DAYS = 366 // must match WINDOW_DAYS in backend/app/services/horizons_year.py
-const EARTH_CENTER = '500@399'
 
 const toDay = (ms: number) => new Date(ms).toISOString().slice(0, 10) // "YYYY-MM-DD"
 
 export function SolarSystem() {
   const { data: bodies } = useBodies()
-  const { data: orbits } = useOrbits() // planet orbits, the same for every period
+  const { data: orbits } = useOrbits() // planet orbits in 2000: only shown while a year loads
   const selectBody = useSimStore((s) => s.selectBody)
+  const moonOrbit = useSimStore((s) => moonOrbitScale(s.planetSize))
 
   // First day of the downloaded year. Starts at the clock's date.
   const [windowStart, setWindowStart] = useState(() => toDay(useSimStore.getState().simTimeMs))
@@ -46,28 +52,37 @@ export function SolarSystem() {
         <Stars radius={200_000} depth={10_000} count={5000} factor={4} fade />
         {bodies?.map((b) => {
           const eph = year?.bodies[b.id] // this period's positions (none for the Sun)
-          // Planets: one fixed orbit, loaded once. Moon: one orbit per day of this period.
+          const parent = parentSamplesOf(year, b.id) // Earth's positions for the Moon, else nothing
+          // The orbit of every day of this period, so the line matches the position.
+          // While the period is still downloading, planets show their orbit from 2000 instead.
           const fixedOrbit = orbits?.[b.id]
-          const orbitList = fixedOrbit ? [fixedOrbit] : eph?.daily_orbits
+          const orbitList = eph?.daily_orbits ?? (fixedOrbit ? [fixedOrbit] : undefined)
           return (
             <group key={b.id}>
-              {(eph || b.id === 'sun') && <CelestialBody body={b} samples={eph?.samples} />}
+              {(eph || b.id === 'sun') && (
+                <CelestialBody body={b} samples={eph?.samples} parentSamples={parent} />
+              )}
               {orbitList && orbitList.length > 0 && (
                 <OrbitLine
                   orbits={orbitList}
                   samples={eph?.samples}
-                  parentSamples={
-                    orbitList[0].center === EARTH_CENTER ? year?.bodies.earth?.samples : undefined
-                  }
+                  parentSamples={parent}
+                  scale={parent ? moonOrbit : 1}
                 />
               )}
             </group>
           )
         })}
         <MissionScene earth={year?.bodies.earth?.samples} moon={year?.bodies.moon?.samples} />
+        <FlyCamera bodies={bodies} year={year} />
         {bodies && year && <CameraFollow bodies={bodies} year={year} />}
-        <OrbitControls makeDefault />
+        {bodies && year && <CameraViewDriver bodies={bodies} year={year} />}
+        {bodies && <SurfaceReadoutTracker bodies={bodies} year={year} />}
       </Canvas>
+
+      <SurfaceReadoutPanel />
+      <CameraViewButtons />
+      <MissionPanel />
 
       {(isFetching || isError) && (
         <div style={statusStyle}>

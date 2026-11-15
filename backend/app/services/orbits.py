@@ -1,11 +1,12 @@
-"""Planet orbits: downloaded once from JPL Horizons, then always loaded from disk.
+"""Planet orbits at one fixed date: downloaded once from JPL Horizons, then always loaded from disk.
 
-Planet orbits hardly change over decades (between 1969 and 2040 the real positions stay within
-about 0.5% of one fixed orbit), so a single set of orbital elements at the standard reference
-date J2000 (2000-01-01) is used for every period. The file goes to data/orbits/ instead of the
-cache folder, so it can be committed to git and nobody has to download it again.
+These are only a placeholder, shown while a year of data is still downloading. Once it has
+arrived, every planet uses the orbit of the current day from that year instead
+(see services/horizons_year.py), because orbits slowly drift over the decades and a fixed
+orbit no longer lines up with the real positions.
 
-The Moon is not in here: its orbit changes every day, so it comes with each year of data.
+The file goes to data/orbits/ instead of the cache folder, so it can be committed to git and
+nobody has to download it again. The Moon is not in here: it orbits Earth, not the Sun.
 """
 
 import json
@@ -14,7 +15,7 @@ from datetime import date, timedelta
 from app.core.config import settings
 from app.schemas.ephemeris import OrbitalElements
 from app.services.bodies import BODIES
-from app.services.horizons_year import DAILY_ORBITS, SUN, fetch_orbital_elements
+from app.services.horizons_year import ORBIT_CENTERS, SUN, fetch_orbital_elements
 
 EPOCH = date(2000, 1, 1)  # J2000, the standard reference date in astronomy
 ORBITS_FILE = settings.data_dir / "orbits" / "planets_j2000.json"
@@ -30,7 +31,7 @@ def get_planet_orbits() -> dict[str, OrbitalElements]:
     orbits = {
         body.id: fetch_orbital_elements(body.horizons_id, SUN, EPOCH, next_day)[0]
         for body in BODIES
-        if body.id != "sun" and body.id not in DAILY_ORBITS
+        if body.id != "sun" and body.id not in ORBIT_CENTERS
     }
     ORBITS_FILE.parent.mkdir(parents=True, exist_ok=True)
     ORBITS_FILE.write_text(

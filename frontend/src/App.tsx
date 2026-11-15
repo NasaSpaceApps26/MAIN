@@ -5,6 +5,7 @@ import { SolarSystem } from './components/SolarSystem/SolarSystem'
 import { TopBar } from './components/TopBar/TopBar'
 import { LaunchSiteViewer } from './features/launchSites/LaunchSiteViewer'
 import { MissionPanel } from './features/mission/MissionPanel'
+import { MissionResults } from './features/mission/MissionResults'
 
 export default function App() {
   return (
@@ -14,6 +15,7 @@ export default function App() {
       <MissionPanel />
       <MoonSkyDrawer />
       <LaunchSiteViewer />
+      <MissionResults />
     </AppLayout>
   )
 }

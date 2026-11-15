@@ -9,3 +9,4 @@ __pycache__/
 backend/data/cache/
 backend/data/kernels/
 backend/data/static/terrain/
+assets-src/

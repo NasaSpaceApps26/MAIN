@@ -91,8 +91,24 @@
   box-shadow: 0 0 14px rgba(255, 110, 50, 0.35);
 }
 
-.launch:hover {
+.launch:hover:not(:disabled) {
   background: linear-gradient(180deg, #f5683a, #c84222);
+}
+
+/* locked until the mission has a launch site and a landing point */
+.launch:disabled {
+  border-color: var(--line);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--text-dim);
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.locked {
+  margin: 0;
+  color: #ffb070;
+  font-size: 11px;
+  line-height: 1.35;
 }
 
 .launch:focus-visible,
@@ -147,7 +163,7 @@
 }
 
 .event {
-  font-size: 12px;
+  font-size: 11px;
   color: var(--text-dim);
 }
 
