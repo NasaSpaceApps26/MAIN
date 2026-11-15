@@ -6,6 +6,7 @@ import SiteSelect from './components/SiteSelect.jsx';
 import MoonMap from './components/MoonMap.jsx';
 import ElevationChart from './components/ElevationChart.jsx';
 import SkyDome from './components/SkyDome.jsx';
+import SkyDome3D from './components/SkyDome3D.jsx';
 import Metrics from './components/Metrics.jsx';
 import Windows from './components/Windows.jsx';
 import { fmtUtc } from './format.js';
@@ -45,8 +46,8 @@ function readParams() {
 }
 
 /**
- * view   = 'settings' → only the landing settings form
- *          'results'  → everything else (map, data, sky, chart, windows)
+ * view   = 'settings' → the landing settings form and the Moon map to pick the site
+ *          'results'  → everything else (sky, data, chart, windows)
  * active = panel is open; while closed the component ignores clock ticks (no re-render every frame).
  * One instance serves both views, so they share the same settings and fetched data.
  *
@@ -57,6 +58,7 @@ function readParams() {
 export default function MoonSky({ view = 'results', active = true }) {
   const sites = useLandingSites();
   const [p, setP] = useState(readParams);
+  const [skyView, setSkyView] = useState('3d'); // sky card: two 3D views, or the flat top-down projection
 
   const liveTime = useSimStore((s) => (active ? s.simTimeMs : null));
   const lastTime = useRef(useSimStore.getState().simTimeMs);
@@ -85,7 +87,7 @@ export default function MoonSky({ view = 'results', active = true }) {
     }
   };
 
-  const { loading, error, samples, analysis } = useMoonSky({
+  const { loading, error, retry, samples, analysis } = useMoonSky({
     lat: p.lat, lon: p.lon, altKm: p.alt, start: startMs, days: p.days, step: p.step, at, mode,
   });
 
@@ -120,6 +122,13 @@ export default function MoonSky({ view = 'results', active = true }) {
 
   const seek = (t) => setSimTime(Math.min(Math.max(Math.round(t), startMs), endMs));
 
+  // Apply in the settings: switch the drawer to the results tab (it follows the #hash)
+  const showResults = () => {
+    const { pathname, search } = window.location;
+    window.history.replaceState(null, '', pathname + search + '#moon-sky');
+    window.dispatchEvent(new HashChangeEvent('hashchange'));
+  };
+
   const header = (
     <header>
       <h1>{view === 'settings' ? 'Landing settings' : 'Lunar Sky Calculator'}</h1>
@@ -136,9 +145,18 @@ export default function MoonSky({ view = 'results', active = true }) {
       <div className="moon-sky">
         <div className="app">
           {header}
-          {error && <div className="error">⚠️ {error}</div>}
+          {error && (
+            <div className="error">
+              {error}{' '}
+              <button type="button" onClick={retry}>Retry</button>
+            </div>
+          )}
           <section className="card">
-            <Controls p={p} onChange={update} />
+            <Controls p={p} onChange={update} onApply={showResults}>
+              <MoonMap lat={p.lat} lon={p.lon} sites={sites} siteId={site?.id}
+                onPick={(c) => update(c)} />
+              <SiteSelect sites={sites} siteId={site?.id} onChange={update} />
+            </Controls>
           </section>
         </div>
       </div>
@@ -150,21 +168,32 @@ export default function MoonSky({ view = 'results', active = true }) {
       <div className="app">
         {header}
 
-        {error && <div className="error">⚠️ {error}</div>}
+        {error && (
+            <div className="error">
+              {error}{' '}
+              <button type="button" onClick={retry}>Retry</button>
+            </div>
+          )}
 
-        <div className="grid">
-          <section className="card">
-            <h2>Moon map <small>pick a landing site or click the map</small></h2>
-            <SiteSelect sites={sites} siteId={site?.id} onChange={update} />
-            <MoonMap lat={p.lat} lon={p.lon} sites={sites} siteId={site?.id}
-              onPick={(c) => update(c)} />
-          </section>
-
-          <section className="card">
-            <h2>Sky <small>top-down view</small></h2>
+        <section className="card">
+          <h2 className="sky-head">
+            <span>Sky</span>
+            <span className="seg" role="group" aria-label="Sky view">
+              {['3d', '2d'].map((v) => (
+                <button key={v} type="button" className={skyView === v ? 'on' : ''} aria-pressed={skyView === v}
+                  onClick={() => setSkyView(v)}>{v.toUpperCase()}</button>
+              ))}
+            </span>
+          </h2>
+          {skyView === '3d' ? (
+            <div className="sky-pair">
+              <SkyDome3D samples={samples} a={analysis} mode="outside" />
+              <SkyDome3D samples={samples} a={analysis} mode="inside" />
+            </div>
+          ) : (
             <SkyDome samples={samples} a={analysis} />
-          </section>
-        </div>
+          )}
+        </section>
 
         <section className="card">
           <h2>Data</h2>
@@ -172,12 +201,12 @@ export default function MoonSky({ view = 'results', active = true }) {
         </section>
 
         <section className="card">
-          <h2>Elevation over time <small>synced with the mission clock</small></h2>
+          <h2>Elevation over time</h2>
           <div className="timebar">
             <button type="button" onClick={togglePlay}
-              title={playing ? 'Pause (mission clock)' : 'Play (mission clock)'}>{playing ? '⏸' : '▶'}</button>
+              title={playing ? 'Pause (mission clock)' : 'Play (mission clock)'}>{playing ? '❚❚' : '▶'}</button>
             <button type="button" onClick={() => { if (playing) togglePlay(); setSimTime(startMs); }}
-              title="Back to range start">⏮</button>
+              title="Back to range start">|◀</button>
             <select value={timeScale} onChange={(e) => setTimeScale(+e.target.value)} title="Clock speed">
               {SPEEDS.map((sp) => <option key={sp.value} value={sp.value}>{sp.label}</option>)}
             </select>
@@ -192,7 +221,7 @@ export default function MoonSky({ view = 'results', active = true }) {
 
         {analysis && (
           <section className="card">
-            <h2>Visibility windows <small>click a row to jump to it</small></h2>
+            <h2>Visibility windows</h2>
             <Windows a={analysis} onSeek={seek} />
           </section>
         )}

@@ -3,6 +3,7 @@ import { BackendStatus } from './components/BackendStatus/BackendStatus'
 import { MoonSkyDrawer } from './components/MoonSkyDrawer/MoonSkyDrawer'
 import { SolarSystem } from './components/SolarSystem/SolarSystem'
 import { TopBar } from './components/TopBar/TopBar'
+import { LaunchSiteViewer } from './features/launchSites/LaunchSiteViewer'
 
 export default function App() {
   return (
@@ -10,6 +11,7 @@ export default function App() {
       <BackendStatus />
       <SolarSystem />
       <MoonSkyDrawer />
+      <LaunchSiteViewer />
     </AppLayout>
   )
 }

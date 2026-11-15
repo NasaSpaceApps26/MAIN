@@ -55,7 +55,6 @@ export default function SkyDome({ samples, a }) {
         {a && <Body b={a.sun} cls="sun" label="Sun" />}
         {a && <Body b={a.earth} cls="earth" label="Earth" />}
       </svg>
-      <p className="hint">Dashed lines = path across the sky over the whole range.</p>
     </div>
   );
 }

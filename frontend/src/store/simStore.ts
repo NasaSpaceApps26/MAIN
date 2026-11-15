@@ -1,5 +1,6 @@
 import type { MoonPoint } from '../components/SolarSystem/EarthMoon/moonTerrain'
 import { create } from 'zustand'
+import type { LaunchSiteId } from '../features/launchSites/sites'
 
 /** What the camera is above: shown in the corner of the 3D view (see SurfaceReadout) */
 export type SurfaceReadout = {
@@ -27,9 +28,7 @@ type SimState = {
   shadows: boolean // false: every body is lit evenly, no night side
   departureSiteId: string | null
   landingSiteId: string | null
-  readout: SurfaceReadout | null
-  cameraRequest: { view: CameraView; n: number } | null // n goes up on every click, so the same button works twice
-  requestCameraView: (view: CameraView) => void
+  launchSiteId: LaunchSiteId | null // launch site whose 3D model window is open
   setSimTime: (t: number) => void
   advance: (realDeltaSec: number) => void
   togglePlay: () => void
@@ -39,7 +38,7 @@ type SimState = {
   setShadows: (on: boolean) => void
   setDepartureSite: (id: string | null) => void
   setLandingSite: (id: string | null) => void
-  setReadout: (readout: SurfaceReadout | null) => void
+  openLaunchSite: (id: LaunchSiteId | null) => void
 }
 
 export const useSimStore = create<SimState>()((set, get) => ({
@@ -53,10 +52,7 @@ export const useSimStore = create<SimState>()((set, get) => ({
   shadows: true,
   departureSiteId: null,
   landingSiteId: null,
-  readout: null,
-  cameraRequest: null,
-  requestCameraView: (view) =>
-    set((s) => ({ cameraRequest: { view, n: (s.cameraRequest?.n ?? 0) + 1 } })),
+  launchSiteId: null,
   setSimTime: (t) => set({ simTimeMs: t }),
   advance: (dt) => {
     const { isPlaying, simTimeMs, timeScale } = get()
@@ -69,5 +65,5 @@ export const useSimStore = create<SimState>()((set, get) => ({
   setShadows: (on) => set({ shadows: on }),
   setDepartureSite: (id) => set({ departureSiteId: id }),
   setLandingSite: (id) => set({ landingSiteId: id }),
-  setReadout: (readout) => set({ readout }),
+  openLaunchSite: (id) => set({ launchSiteId: id }),
 }))

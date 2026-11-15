@@ -8,49 +8,89 @@ import { moonOrbitScale, radiusToUnits } from './scale'
 
 type Props = { bodies: Body[]; year: EphemerisYear }
 
+const FLIGHT_S = 2.2 // length of the fly-in, seconds
+const VIEW_RADII = 6 // the camera stops this many radii from the body's centre
+
+/** Slow start, fast middle, gentle stop. */
+const easeInOut = (u: number) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2)
+
+type Flight = {
+  startS: number // clock time when the flight began
+  fromTarget: Vector3 // what the camera looked at when the flight began
+  fromDist: number // camera distance from that point
+  fromDir: Vector3 // direction from target to camera when the flight began
+  toDir: Vector3 // direction the camera ends up in: on the body's sunlit side
+  toDist: number
+}
+
+const UP = new Vector3(0, 1, 0)
+
 /**
- * Keeps the camera with the selected body while it moves along its orbit.
- * On a new selection (or when the planet size changes) the camera jumps to ~8 radii from the
- * body, looking at it. After that it travels along with the body, so W/A/S/D and the mouse work
- * as if the body stood still. Click empty space to deselect: the camera then stays where it is.
+ * Flies the camera to the selected body, then keeps it there while the body moves along its orbit.
+ * During the flight the look-at point glides to the body, the distance shrinks smoothly
+ * (on a log scale, because it goes from millions of km to a few planet radii) and the camera
+ * swings round to the body's day side, so you arrive looking at the lit half.
+ * After that you can rotate and zoom as usual. Click empty space to deselect and fly freely again.
  */
 export function CameraFollow({ bodies, year }: Props) {
   const camera = useThree((s) => s.camera)
-  const jumpedTo = useRef<string | null>(null) // e.g. "earth:25": body + size we last jumped to
+  const controls = useThree((s) => s.controls) as unknown as Controls | null
+  const lastSelected = useRef<string | null>(null)
+  const flight = useRef<Flight | null>(null)
   const bodyPos = useRef(new Vector3())
-  const lastBodyPos = useRef(new Vector3())
-  const step = useRef(new Vector3())
+  const offset = useRef(new Vector3())
+  const dir = useRef(new Vector3())
 
-  useFrame(() => {
-    const { selectedBodyId, simTimeMs, planetSize } = useSimStore.getState()
+  useFrame(({ clock }) => {
+    const { selectedBodyId, simTimeMs } = useSimStore.getState()
     const body = bodies.find((b) => b.id === selectedBodyId)
-    if (!body) {
-      jumpedTo.current = null
+    if (!controls || !body) {
+      lastSelected.current = null
+      flight.current = null
       return
     }
 
     const samples = year.bodies[body.id]?.samples
-    if (samples) {
-      const parent = parentSamplesOf(year, body.id)
-      drawnPositionAt(samples, parent, simTimeMs, moonOrbitScale(planetSize), bodyPos.current)
-    } else {
-      bodyPos.current.set(0, 0, 0) // the Sun
+    if (samples) positionAt(samples, simTimeMs, bodyPos.current)
+    else bodyPos.current.set(0, 0, 0) // the Sun
+
+    // New selection: start a flight from wherever the camera is now
+    if (lastSelected.current !== body.id) {
+      lastSelected.current = body.id
+      const from = new Vector3().subVectors(camera.position, controls.target)
+      const fromDist = Math.max(from.length(), 1e-6)
+      from.normalize()
+      // Toward the Sun (at the origin), a little from above and from where we came; the Sun keeps `from`
+      const toSun = bodyPos.current.clone().negate()
+      const toDir =
+        toSun.lengthSq() > 0 ? toSun.normalize().multiplyScalar(0.85).addScaledVector(from, 0.3).addScaledVector(UP, 0.3).normalize() : from.clone()
+      flight.current = {
+        startS: clock.elapsedTime,
+        fromTarget: controls.target.clone(),
+        fromDist,
+        fromDir: from,
+        toDir,
+        toDist: radiusToUnits(body.radius_km, body.id) * VIEW_RADII,
+      }
     }
 
-    const key = `${body.id}:${planetSize}`
-    if (jumpedTo.current !== key) {
-      jumpedTo.current = key
-      // Jump: stay on the side of the body we're already on, ~8 radii away, and look at it
-      step.current.subVectors(camera.position, bodyPos.current).normalize()
-      if (step.current.lengthSq() === 0) step.current.set(0, 0.5, 1).normalize()
-      const distance = radiusToUnits(body.radius_km, body.id, planetSize) * 8
-      camera.position.copy(bodyPos.current).addScaledVector(step.current, distance)
-      camera.lookAt(bodyPos.current)
-    } else {
-      // Travel with the body: move the camera exactly as far as the body moved since last frame
-      camera.position.add(step.current.subVectors(bodyPos.current, lastBodyPos.current))
+    const f = flight.current
+    if (f) {
+      const u = Math.min((clock.elapsedTime - f.startS) / FLIGHT_S, 1)
+      const k = easeInOut(u)
+      // look-at point slides to the (moving) body; distance shrinks geometrically
+      controls.target.lerpVectors(f.fromTarget, bodyPos.current, k)
+      const dist = Math.exp(Math.log(f.fromDist) + (Math.log(f.toDist) - Math.log(f.fromDist)) * k)
+      dir.current.lerpVectors(f.fromDir, f.toDir, k).normalize()
+      camera.position.copy(controls.target).addScaledVector(dir.current, dist)
+      if (u >= 1) flight.current = null
+      return
     }
-    lastBodyPos.current.copy(bodyPos.current)
+
+    // Following: move the target and the camera together, keeping the offset the user rotated/zoomed to
+    offset.current.subVectors(camera.position, controls.target)
+    controls.target.copy(bodyPos.current)
+    camera.position.copy(bodyPos.current).add(offset.current)
   })
 
   return null

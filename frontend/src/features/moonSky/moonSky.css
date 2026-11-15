@@ -31,11 +31,8 @@
 .moon-sky .muted { color: var(--muted); }
 .moon-sky small { color: var(--muted); font-weight: 400; font-size: 12px; margin-left: 6px; }
 
-.moon-sky .grid { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr); gap: 14px; margin-bottom: 14px; }
-@container moon-sky (max-width: 680px) { .moon-sky .grid { grid-template-columns: minmax(0, 1fr); } }
 
 .moon-sky .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px 16px; margin-bottom: 14px; }
-.moon-sky .grid .card { margin-bottom: 0; }
 .moon-sky .card h2 { margin: 0 0 10px; font-size: 15px; }
 
 .moon-sky .error { background: #3a1820; border: 1px solid var(--err); color: #ffd0d0; padding: 10px 14px; border-radius: 10px; margin-bottom: 14px; }
@@ -67,6 +64,7 @@
 /* map */
 .moon-sky .site-select { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; color: var(--muted); font-size: 12px; }
 .moon-sky .site-select select { width: 100%; }
+.moon-sky .controls .site-select { margin-bottom: 0; } /* the form's gap already spaces it */
 .moon-sky .moonmap svg { width: 100%; height: auto; display: block; border-radius: 8px; cursor: crosshair; }
 .moon-sky .moonmap .far { fill: #1a1f2b; }
 .moon-sky .moonmap .near { fill: #2a3040; }
@@ -118,7 +116,19 @@
 .moon-sky .body.sun.below circle { stroke: var(--sun); }
 .moon-sky .body.earth.below circle { stroke: var(--earth); }
 .moon-sky .body.below text { fill: var(--muted); }
-.moon-sky .dome .hint { text-align: center; }
+
+/* Sky card header: title and the 3D / 2D switch */
+.moon-sky .sky-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.moon-sky .seg { display: inline-flex; gap: 2px; }
+.moon-sky .seg button { padding: 3px 10px; font-size: 12px; }
+.moon-sky .seg button.on { background: #2b4d9a; border-color: #3d63bd; }
+
+/* 3D sky dome */
+.moon-sky .sky3d { position: relative; height: 360px; border-radius: 10px; overflow: hidden; background: #02030a; }
+.moon-sky .sky3d-caption { position: absolute; top: 8px; left: 8px; padding: 2px 8px; border-radius: 6px; background: rgba(11, 15, 26, 0.7); color: var(--muted); font-size: 12px; pointer-events: none; }
+/* two 3D views side by side: overview and from the lander; stacked when the panel is narrow */
+.moon-sky .sky-pair { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+@container moon-sky (max-width: 680px) { .moon-sky .sky-pair { grid-template-columns: minmax(0, 1fr); } }
 
 /* timeline */
 .moon-sky .timebar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 8px; }

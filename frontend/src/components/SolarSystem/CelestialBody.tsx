@@ -5,12 +5,9 @@ import { Html } from '@react-three/drei'
 import { Vector3, type Group } from 'three'
 import type { Body, StateSample } from '../../api/types'
 import { useSimStore } from '../../store/simStore'
-import { TEXTURE_IDS } from './bodyTextures'
-import { TiledSurface } from './EarthMoon/TiledSurface'
-import { drawnPositionAt } from './orbitMath'
-import { PlainSurface, TexturedSurface } from './PlanetSurface'
-import { moonOrbitScale, radiusToUnits, spheroidRadii, type Shape } from './scale'
-import { SiteMarkers } from './SiteMarkers'
+import { LaunchSites } from './LaunchSites'
+import { positionAt } from './orbitMath'
+import { radiusToUnits } from './scale'
 
 const labelStyle = {
   transform: 'translate(-50%, 4px)', // centred, just under the point it's attached to
@@ -60,7 +57,7 @@ export function CelestialBody({ body, samples, parentSamples }: Props) {
   const labelAnchor = useRef<Group>(null) // where the name label hangs
   const label = useRef<HTMLButtonElement>(null)
   const selectBody = useSimStore((s) => s.selectBody)
-  const planetSize = useSimStore((s) => s.planetSize)
+  const radius = radiusToUnits(body.radius_km, body.id)
 
   // Real shape: wider at the equator than pole to pole (Saturn ~10%, Jupiter ~6.5%)
   const radius = radiusToUnits(body.radius_km, body.id, planetSize)
@@ -125,18 +122,9 @@ export function CelestialBody({ body, samples, parentSamples }: Props) {
           }
         }}
       >
-        {body.id === 'earth' || body.id === 'moon' ? (
-          // NASA imagery that gets sharper as the camera gets closer
-          <TiledSurface
-            bodyId={body.id}
-            shape={shape}
-            flattening={flattening}
-            color={body.color}
-          />
-        ) : TEXTURE_IDS.has(body.id) ? (
-          <Suspense fallback={plainSurface}>
-            <TexturedSurface id={body.id} shape={shape} glows={glows} />
-          </Suspense>
+        <sphereGeometry args={[radius, 48, 48]} />
+        {body.id === 'sun' ? (
+          <meshBasicMaterial color={body.color} />
         ) : (
           plainSurface
         )}
@@ -144,7 +132,8 @@ export function CelestialBody({ body, samples, parentSamples }: Props) {
         {(body.id === 'earth' || body.id === 'moon') && (
           <SiteMarkers bodyId={body.id} equatorialRadius={equatorial} flattening={flattening} />
         )}
-      </group>
+        {body.id === 'earth' && <LaunchSites radius={radius} />}
+      </mesh>
       {/* At true scale planets are smaller than a pixel, so a clickable label marks each one */}
       <group ref={labelAnchor}>
         <Html zIndexRange={[0, 0]}>

@@ -34,5 +34,5 @@ for (const [label, b] of [['SUN', a.sun], ['EARTH', a.earth]]) {
     console.log(`    ${fmt(w.start)}${w.startKnown ? '' : '*'} → ${fmt(w.end)}${w.endKnown ? '' : '*'}  (${formatDuration(w.durationMin)})`);
   }
 }
-console.log(`\nSun + Earth at the same time: ${a.both.windows.length} windows`);
+console.log(`\nShared visibility (Sun and Earth at the same time): ${a.both.windows.length} windows`);
 console.log('(* = window cut off by the edge of the fetched range)\n');

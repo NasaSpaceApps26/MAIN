@@ -58,12 +58,15 @@ async function handleSky(q) {
   const stop = new Date(start.getTime() + days * 86400_000);
   const key = [lat, lon, altKm, start.getTime(), stop.getTime(), step].join('|');
 
+  // The cache holds the promise, so identical requests that arrive while one is still
+  // loading wait for it instead of asking Horizons again. Failures are not cached.
   let entry = cache.get(key);
   if (!entry || Date.now() - entry.time > CACHE_TTL) {
-    const sky = await fetchSky({ lat, lon, altKm, start, stop, step });
-    entry = { time: Date.now(), sky };
+    entry = { time: Date.now(), sky: fetchSky({ lat, lon, altKm, start, stop, step }) };
     cache.set(key, entry);
+    entry.sky.catch(() => cache.get(key) === entry && cache.delete(key));
   }
+  const sky = await entry.sky;
 
   const at = q.get('at') ? new Date(q.get('at')).getTime() : start.getTime();
   const modeParam = q.get('mode') ?? 'center';
@@ -72,8 +75,8 @@ async function handleSky(q) {
   return {
     site: { lat, lon, altKm, id: siteId ?? null },
     range: { start: start.getTime(), stop: stop.getTime(), step },
-    samples: entry.sky,                  // { sun: [{t,az,el}], earth: [...] }
-    analysis: analyzeSky(entry.sky, at, { mode }),
+    samples: sky,                        // { sun: [{t,az,el}], earth: [...] }
+    analysis: analyzeSky(sky, at, { mode }),
   };
 }
 
@@ -87,6 +90,9 @@ const server = http.createServer(async (req, res) => {
     return send(res, 404, { error: 'Not found' });
   } catch (e) {
     console.error(e);
+    if (e.upstreamBusy) {
+      return send(res, 503, { error: 'JPL Horizons is busy or unreachable right now – try again in a moment.' });
+    }
     send(res, e.code && e.code < 500 ? e.code : 502, { error: e.message });
   }
 });
