@@ -1,11 +1,12 @@
 import { useSimStore } from '../../store/simStore'
 import styles from './MissionClock.module.css'
 
+// Simulated seconds per real second
 const SPEEDS = [
-  { value: 1, label: '1×' },
-  { value: 60, label: '1 min/s' },
-  { value: 3600, label: '1 h/s' },
-  { value: 86400, label: '1 d/s' },
+  { value: 3_600, label: '1 h/s' },
+  { value: 43_200, label: '12 h/s' },
+  { value: 86_400, label: '1 d/s' },
+  { value: 259_200, label: '3 d/s' },
 ]
 
 function formatUtc(ms: number) {

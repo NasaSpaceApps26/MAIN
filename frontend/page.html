@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <title>Lunar Reconnaissance Orbiter Camera | PDS Archive</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
+    <link rel="shortcut icon" type="image/x-icon" href="favicon.ico" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet" integrity="sha384-1BmE4kWBq78iYhFldvKuhfTAU6auU8tT94WrHftjDbrCEXSU1oBoqyl2QvZ6jIW3" crossorigin="anonymous">
+    <style>
+html,body{width:100%;height:100%;margin:0;padding:0}html{position:relative;min-height:100%;font-size:100%}body{font-family:'Open Sans',Helvetica,sans-serif;font-size:18px;line-height:1.75;color:var(--bs-gray-900);font-weight:400;background-color:#fff}main{height:auto;margin:0;padding:1rem}@media (min-width: 768px){main{padding:1rem 1rem 7rem}}main article,main section{margin:2rem auto 5rem;max-width:1300px}@media (min-width: 768px){main article,main section{margin:2.5rem auto 6rem}}h1,h2,h3,h4,h5,h6{font-family:'Roboto',Helvetica,sans-serif}h1 a,h2 a,h3 a{border:none}h1{font-weight:400;font-size:3.375em}h2{font-size:2.25em}h3{font-size:1.5em}h4{font-size:1.25em}h5{font-size:1em}h6{font-size:.9em}h2,h3{font-weight:400}h5,h6{font-weight:600}header{margin-top:5rem;padding-bottom:2rem}@media (min-width: 768px){header{padding-bottom:3rem}}header h1,header h2,header h3,header h4,header h5,header h6{margin-top:3rem;text-align:center}header a{border:none}header::after{content:'';display:block;flex:0 0 auto;order:3;width:50px;height:2px;background-color:var(--bs-primary);margin:24px auto 0}table{font-family:'Roboto Condensed',Helvetica,sans-serif;font-size:.9em;margin:1rem 0 2rem}table caption{font-family:'Roboto',Arial,sans-serif;font-size:.9em;line-height:1.4rem;padding:10px}ol,ul,dl{text-align:left;margin-bottom:2rem}li{line-height:24px}li:not(.nav-item){font-family:'Roboto',Helvetica,sans-serif}img{height:auto}nav a{border:none}a{color:var(--bs-primary);text-decoration:none;outline:none}a:hover,a:focus{text-decoration:none;outline:none}a.link-alt{font-size:.9em;border-bottom:1px dotted}p a:hover,.card-body a:hover,p a:focus,.card-body a:focus{color:var(--bs-secondary);text-decoration:none;outline:none;border-bottom:1px solid}figcaption a{border:none;text-decoration:none}figcaption a:hover{text-decoration:underline;border:none}.container-fluid header{background-image:linear-gradient(#f8f8f8,transparent)}.block-link{border:none}.block-link *{color:initial}.p-col-2{columns:2 400px}.p-col-3{columns:3 300px}.p-col-2,.p-col-3{column-fill:balance;column-gap:2rem;margin-bottom:3rem;min-height:auto}.p-col-2 p,.p-col-3 p{margin-top:0;margin-bottom:1.5rem}.card-link{font-size:.9rem;font-weight:500}.ul-none{padding:0;margin:0}.ul-none > li{list-style-type:none}a.btn{text-decoration:none}.navbar{padding:0;border-bottom:1px solid #e5e5e5}.navbar-brand{font-family:'Lato',Arial,sans-serif;font-size:2rem;font-weight:600;letter-spacing:.02rem;color:var(--bs-gray-800)!important;-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;background-image:asset_url(nearside_small.png);background-size:50px;background-position-y:center;background-position-x:20px;background-repeat:no-repeat}.navbar-brand:hover{color:#000!important}.navbar-brand:hover .effect-shine{mask-image:linear-gradient(110deg,#000 35%,rgba(255,255,255,0) 35%,rgba(255,255,255,0) 65%,#000 65%);mask-size:250%;animation:shine 4s infinite}.navbar-toggler{margin-right:10px;border:none;background-color:transparent!important;transition:all .2s ease-in-out}.navbar-toggler .top-bar{transform:rotate(45deg);transform-origin:10% 10%}.navbar-toggler .middle-bar{opacity:0}.navbar-toggler .bottom-bar{transform:rotate(-45deg);transform-origin:10% 90%}.navbar-toggler:hover,.navbar-toggler:focus{outline:none;box-shadow:none;border:none}.navbar-toggler.collapsed .top-bar{transform:rotate(0)}.navbar-toggler.collapsed .middle-bar{opacity:1}.navbar-toggler.collapsed .bottom-bar{transform:rotate(0)}.navbar-toggler:not(.collapsed){margin-top:-6px;transition:all .2s ease-in-out}.toggler-icon{width:1.5em;height:2px;background-color:var(--bs-gray-dark);display:block;transition:all .2s;margin-top:6px}.navbar-nav{align-self:stretch}.navbar-nav .nav-item .nav-link{font-weight:600;color:var(--bs-gray-dark)}.navbar-nav .nav-item .dropdown-toggle:after{border:none}.navbar-nav .show > .nav-link,.navbar-nav .active > .nav-link,.navbar-nav .nav-link.show,.navbar-nav .nav-link.active{color:#000}.dropdown-item i{padding-left:10px}.dropdown-item:hover,.dropdown-item:focus{border-radius:0}.dropdown-menu.show{max-height:800px;visibility:visible;padding:.5rem 0;margin:.125rem 0 0;transition:all .4s ease-in-out}.dropdown-menu{display:block;max-height:0;visibility:hidden;padding:0;margin:0;transition:all 0 ease-in-out;overflow:hidden}.dropdown-menu-right{left:auto;right:0}@media (max-width: 768px){.navbar-nav .dropdown-menu{border:none;padding-top:0}.navbar-nav .dropdown-item{padding:8px}.nav-item{border-top:1px solid #e5e5e5;padding:0 20px}.nav-link{padding:15px 0}.nav-link::after{content:'';font-family:"FontAwesome";font-weight:100;content:\f054;float:right;transition:transform .1s ease-in-out}.nav-link.show::after{transform:rotate(90deg)}.dropdown-item{font-size:.9em}}footer{position:relative;flex:0 0 auto;color:var(--bs-gray);font-family:'Roboto',Arial,sans-serif;font-size:.9em;line-height:1.5rem;padding:6rem 0 4rem;background-color:var(--bs-gray-800)}footer a{color:var(--bs-gray);border:none}footer a:hover{color:var(--bs-gray-200)}footer hr{border-color:rgba(255,255,255,0.1)}footer h4{color:var(--bs-gray-200);font-weight:400}footer::before{content:'';position:absolute;width:100%;background-color:inherit;pointer-events:none}.footer-img{height:47px;padding-right:5px;vertical-align:text-bottom}.footer-brand{display:block;font-family:'Lato',Arial,sans-serif;font-size:42px;font-weight:600;letter-spacing:2px;color:var(--bs-gray-200);-webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale}@media only screen and (max-width: 991px){.navbar-expand-md .navbar-nav .nav-link{padding-right:.75rem;padding-left:.75rem}}@media only screen and (max-width: 767px){.navbar-expand-md .navbar-nav .nav-link{padding-right:.5rem;padding-left:.5rem}.footer-img-hide{display:none!important}.pull-right{float:none!important;display:inline;margin:5px auto!important;text-align:left}.inline{display:block}.nav-tabs{border-bottom:1px solid #ddd}.container-fluid{padding:0}.row{width:100%;margin-left:0}[class*="span"],.uneditable-input[class*="span"],.row [class*="span"]{float:none;display:block;width:100%;margin-left:0;-webkit-box-sizing:border-box;-moz-box-sizing:border-box;box-sizing:border-box}.col-md-12,.row .col-md-12{width:100%;-webkit-box-sizing:border-box;-moz-box-sizing:border-box;box-sizing:border-box}.row [class*="offset"]:first-child{margin-left:0}.hidden-lg{display:inherit!important}.visible-lg{display:none!important}.visible-xs{display:inherit!important}.hidden-xs{display:none!important}.media-body{float:left;width:auto;margin:0 0 25px}.media-left img.thumbnail{width:100%}}@media only screen and (max-width: 575px){h1{font-size:2.625em}h2{font-size:1.875em}h3{font-size:1.375em}h4{font-size:1.25em}h5{font-size:1em}h6{font-size:.9em}header h1{margin-top:3rem}article{padding-left:0;padding-right:0}.hidden-xxs{display:none!important}.page-header h1 small{display:block;line-height:20px}}@media only screen and (min-width: 768px){.navbar-collapse{align-self:stretch}.navbar-nav{margin-right:15px}.navbar-expand-md .navbar-nav .nav-link{display:flex;flex-direction:column;align-self:stretch;align-items:center;justify-content:center;height:100%}.nav-item{flex-direction:row}.navbar-nav .dropdown-menu{border-radius:0;margin-top:0;border-top:0}.dropdown-menu-center{right:auto;left:50%;-webkit-transform:translate(-50%,0);-o-transform:translate(-50%,0);transform:translate(-50%,0)}}@media only screen and (min-width: 992px){.navbar-expand-md .navbar-nav .nav-link{padding-right:1.875rem;padding-left:1.875rem}}@media only screen and (min-width: 1400px){.dropdown-menu-xxl-center{right:auto;left:50%;-webkit-transform:translate(-50%,0);-o-transform:translate(-50%,0);transform:translate(-50%,0)}}
+    </style>
+  </head>
+  <body class="d-flex flex-column h-100">
+    <nav class="navbar navbar-expand-md navbar-light text-dark justify-content-between align-items-center mx-auto w-100">
+      <div class="container-fluid">
+        <a class="navbar-brand d-flex align-items-center py-0 px-md-3 pt-3 pb-4" href="https://lroc.im-ldi.com/">
+           <img class="me-2" width="50" height="50" src="LROC_patch_alpha.png" />
+          <span class="d-block d-xxl-none">LROC</span><span class="d-none d-xxl-block fw-normal">Lunar Reconnaissance Orbiter Camera</span>
+        </a>
+        <button class="navbar-toggler collapsed" type="button" data-bs-toggle="collapse" data-bs-target="#lroc-navbar" aria-controls="#lroc-navbar" aria-expanded="false" aria-label="Toggle navigation">
+          <span class="toggler-icon top-bar"></span>
+          <span class="toggler-icon middle-bar"></span>
+          <span class="toggler-icon bottom-bar"></span>
+        </button>
+        <div class="collapse navbar-collapse justify-content-end" id="lroc-navbar">
+          <ul class="navbar-nav me-0">
+            <li class="nav-item dropdown">
+              <button class="nav-link text-dark dropdown-toggle text-start text-md-center w-100 border-0 bg-transparent" id="navbarDropdownAbout" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">About</button>
+              <div class="dropdown-menu" aria-labelledby="navbarDropdownAbout">
+                <a class="dropdown-item" href="https://lroc.im-ldi.com/about">LROC &amp; LRO</a>
+                <a class="dropdown-item" href="https://lroc.im-ldi.com/about/objectives">Objectives</a>
+                <a class="dropdown-item" href="https://lroc.im-ldi.com/about/specs">Specifications</a>
+                <a class="dropdown-item" href="https://lroc.im-ldi.com/about/team">LROC Team</a>
+                <a class="dropdown-item" href="https://lroc.im-ldi.com/about/patch">LROC Patch</a>
+                <a class="dropdown-item" href="https://lroc.im-ldi.com/about/whereislro">Where is LRO?</a>
+              </div>
+            </li>
+            <li class="nav-item dropdown">
+              <button class="nav-link text-dark dropdown-toggle text-start text-md-center w-100 border-0 bg-transparent" id="navbarDropdownImages" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Images</button>
+              <div class="dropdown-menu" aria-labelledby="navbarDropdownImages">
+                <a class="dropdown-item" href="https://lroc.im-ldi.com/images">Featured Images</a>
+                <a class="dropdown-item" href="https://lroc.im-ldi.com/featured_sites">Featured Sites</a>
+                <a class="dropdown-item" href="https://lroc.im-ldi.com/atlases">Lunar Atlases</a>
+                <a class="dropdown-item" href="https://lroc.im-ldi.com/images/videos">Lunar Videos</a>
+                <a class="dropdown-item" href="https://lroc.im-ldi.com/images/downloads">Downloads</a>
+                <a class="dropdown-item" href="https://lroc.im-ldi.com/images/gigapan">Gigapan</a>
+              </div>
+            </li>
+            <li class="nav-item dropdown">
+              <button class="nav-link text-dark dropdown-toggle text-start text-md-center w-100 border-0 bg-transparent" id="navbarDropdownData" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Data</button>
+              <div class="dropdown-menu" aria-labelledby="navbarDropdownData">
+                <a class="dropdown-item" href="//data.lroc.im-ldi.com/lroc/search">Data Browser<i class="fa-solid fa-square-up-right" aria-hidden="true"></i></a>
+                <a class="dropdown-item" href="https://lroc.im-ldi.com/data">PDS Archive<i class="fa-solid fa-square-up-right" aria-hidden="true"></i></a>
+                <a class="dropdown-item" href="//target.lroc.im-ldi.com/output/lroc/lroc_page.html">Target Request<i class="fa-solid fa-square-up-right" aria-hidden="true"></i></a>
+                <div class="dropdown-divider"></div>
+                <small class="text-dark font-weight-bold py-2 px-2 px-md-4 d-block">Mapping Tools</small>
+                <a target="_blank" class="dropdown-item" href="http://wms.im-ldi.com/">Lunaserv LGE<i class="fa-solid fa-square-up-right" aria-hidden="true"></i></a>
+                <a target="_blank" class="dropdown-item" href="http://quickmap.lroc.im-ldi.com/">Lunar QuickMap<i class="fa-solid fa-square-up-right" aria-hidden="true"></i></a>
+                <div class="dropdown-divider"></div>
+                <small class="text-dark font-weight-bold py-2 px-2 px-md-4 d-block">Other Tools</small>
+                <a class="dropdown-item" href="https://lroc.im-ldi.com/data/color_palette">Color Palette Generator</a>
+              </div>
+            </li>
+            <li class="nav-item dropdown">
+              <button class="nav-link text-dark dropdown-toggle text-start text-md-center w-100 border-0 bg-transparent" id="navbarDropdownNews" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">News</button>
+              <div class="dropdown-menu" aria-labelledby="navbarDropdownNews">
+                <a class="dropdown-item" href="https://lroc.im-ldi.com/news">Recent News</a>
+                <a class="dropdown-item" href="https://lroc.im-ldi.com/news_tags/Announcements">Announcements</a>
+                <a class="dropdown-item" href="https://lroc.im-ldi.com/news_tags/Events">Events</a>
+                <a class="dropdown-item" href="https://lroc.im-ldi.com/news_tags/PDS%20Release">PDS Releases</a>
+                <a class="dropdown-item" href="https://lroc.im-ldi.com/news_tags/Updates">Updates</a>
+              </div>
+            </li>
+            <li class="nav-item dropdown">
+              <button class="nav-link text-dark dropdown-toggle text-start text-md-center w-100 border-0 bg-transparent" id="navbarDropdownEducators" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Educators</button>
+              <div class="dropdown-menu" aria-labelledby="navbarDropdownEducators">
+                <a class="dropdown-item" href="https://lroc.im-ldi.com/educators/history">Lunar History</a>
+                <a class="dropdown-item" href="https://lroc.im-ldi.com/educators/science">Lunar Science</a>
+                <a class="dropdown-item" href="https://lroc.im-ldi.com/educators/activities">Activities</a>
+              </div>
+            </li>
+            <li class="nav-item dropdown">
+              <button class="nav-link text-dark dropdown-toggle text-start text-md-center w-100 border-0 bg-transparent" id="navbarDropdownVisit" role="button" data-bs-toggle="dropdown" aria-haspopup="true" aria-expanded="false">Visit</button>
+              <div class="dropdown-menu dropdown-menu-end end-0" aria-labelledby="navbarDropdownvisit">
+                <a class="dropdown-item" href="https://lroc.im-ldi.com/visit/exhibits">Public exhibits</a>
+                <a class="dropdown-item" href="https://lroc.im-ldi.com/news_tags/Events">Public events</a>
+              </div>
+            </li>
+          </ul>
+        </div>
+      </div>
+    </nav>
+    <main class="container flex-shrink-0" role="main">
+      <div class="container">
+        <div class="col-lg-12">
+          <header>
+            <h1>PDS Archive</h1>
+          </header>
+          <section class="row mt-5">
+            <div class="p-col-3">
+              <p>The LROC Planetary Data System archive is divided into three sections: Engineering Data Records (EDRs)
+              are images and their associated metadata, Calibrated Data Records (CDRs) are EDRs that have been decompanded
+              and calibrated, and Reduced Data Records (RDRs) that can be made from as few as one image or as many as
+              thousands that are processed and reduced for the purpose of, for example, making a mosaic that combines
+              multiple images of a particular area or feature, or a high resolution global digital elevation model
+              created with stereo observations. LROC has been releasing data to PDS quarterly since 2009, soon after the
+              project began. In October 2018, EDRs and CDRs were switched to monthly releases while RDRs continue to be
+              released quarterly.</p>
+            </div>
+            <p><a href="LRO-L-LROC-2-EDR-V1.0/" title="LROC PDS EDR Archive"><span class="folder"></span> LRO-L-LROC-2-EDR-V1.0/</a></p>
+            <p><a href="LRO-L-LROC-3-CDR-V1.0/" title="LROC PDS CDR Archive"><span class="folder"></span> LRO-L-LROC-3-CDR-V1.0/</a></p>
+            <p><a href="LRO-L-LROC-5-RDR-V1.0/" title="LROC PDS RDR Archive"><span class="folder"></span> LRO-L-LROC-5-RDR-V1.0/</a></p>
+          </section>
+        </div>
+      </div>
+    </main>
+    <footer class="footer mt-auto">
+      <div class="container">
+        <div class="row">
+          <div class="col-md-4 pb-5 py-md-2">
+            <span class="footer-brand mb-2"><img class="footer-img" src="LROC_patch_alpha.png" />LROC</span>
+            <p>
+              Lunar Reconnaissance Orbiter Camera<br>
+              Science Operations Center<br>
+              Tempe, Arizona
+            </p>
+          </div>
+          <div class="col-md-4 pb-5 py-md-2">
+            <h4>Moon friends</h4>
+            <a target="_blank" class="d-block" href="//moon.nasa.gov/">NASA Moon</a>
+            <a target="_blank" class="d-block" href="//lunar.gsfc.nasa.gov/">Lunar Reconnaissance Orbiter</a>
+            <a target="_blank" class="d-block" href="//sese.asu.edu/">ASU School of Earth and Space Exploration</a>
+            <a target="_blank" class="d-block" href="//ser.im-ldi.com/">Space Exploration Resources</a>
+            <a target="_blank" class="d-block" href="//apollo.im-ldi.com/">Apollo Image Archive</a>
+            <a target="_blank" class="d-block" href="//tothemoon.im-ldi.com">March to the Moon Image Archive</a>
+          </div>
+          <div class="col-md-4 pb-5 py-md-2">        
+            <h4>Connect with us</h4>
+            <a class="d-block" target="_blank" href="https://sese.asu.edu/community-engagement/events">ASU School of Earth and Space Exploration</a>
+            <a class="d-block" href="https://lroc.im-ldi.com/visit/exhibits">LROC Lunar Exhibits</a>
+            <a class="d-block" href="https://lroc.im-ldi.com/news_tags/Events">LROC Affiliated Events</a>
+            <a class="d-block" href="https://lroc.im-ldi.com/contact">Contact Us</a>
+          </div>
+        </div>
+        <hr class="mx-3 mx-md-0 my-5">
+        <div class="row">
+          <p class="col pt-3 pt-md-0 text-gray-dark">&#169;2024 NASA/GSFC/LROC. School of Earth and Space Exploration, Arizona State University. All rights reserved. <a href="https://lroc.im-ldi.com/about/terms">Terms of Use &amp; Citation Policy</a>.</p>
+        </div>
+      </div>
+    </footer>
+  </body>
+  <script>
+    function toggleDropdownsOnHoverOrClick(e) {
+      if (window.innerWidth > 768) {
+        const dropdown = e.target.closest('.dropdown');
+        const menu = dropdown.querySelector('.dropdown-menu');
+        const shouldOpen = e.type !== 'click' && dropdown.matches(':hover, :focus, :focus-visible');
+        menu.classList.toggle('show', shouldOpen);
+        //dropdown.classList.toggle('show', shouldOpen);
+        dropdown.querySelector('[data-bs-toggle="dropdown"]').setAttribute('aria-expanded', shouldOpen.toString());
+      }
+    }
+    
+    document.querySelectorAll('.dropdown').forEach(function(dropdown) {
+      dropdown.addEventListener('mouseenter', toggleDropdownsOnHoverOrClick, true);
+      dropdown.addEventListener('mouseleave', toggleDropdownsOnHoverOrClick, true);
+      dropdown.addEventListener('click', function(e) {
+        if (e.target.matches('.dropdown-item')) {
+          toggleDropdownsOnHoverOrClick(e);
+        }
+      }, true);
+    });
+  </script>
+</html>

@@ -3,11 +3,8 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { Vector3 } from 'three'
 import type { Body, EphemerisYear } from '../../api/types'
 import { useSimStore } from '../../store/simStore'
-import { positionAt } from './orbitMath'
-import { radiusToUnits } from './scale'
-
-// The only parts of drei's OrbitControls we need
-type Controls = { target: Vector3 }
+import { drawnPositionAt, parentSamplesOf } from './orbitMath'
+import { moonOrbitScale, radiusToUnits } from './scale'
 
 type Props = { bodies: Body[]; year: EphemerisYear }
 

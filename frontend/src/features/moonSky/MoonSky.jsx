@@ -14,10 +14,9 @@ import './moonSky.css';
 
 // Same speeds as the mission clock in the top bar (simulated seconds per real second).
 const SPEEDS = [
-  { value: 1, label: '1×' },
-  { value: 60, label: '1 min/s' },
-  { value: 3600, label: '1 h/s' },
+  { value: 43200, label: '12 h/s' },
   { value: 86400, label: '1 d/s' },
+  { value: 259200, label: '3 d/s' },
 ];
 
 /** ms → 'YYYY-MM-DDTHH:MM' (UTC), rounded down to the full hour – the range-start format. */

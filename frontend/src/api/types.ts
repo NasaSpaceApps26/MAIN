@@ -4,7 +4,8 @@ export type Body = {
   id: string
   name: string
   horizons_id: string
-  radius_km: number
+  radius_km: number // volumetric mean radius
+  flattening: number // how squashed the poles are: (equatorial - polar) / equatorial. 0 = perfect sphere
   rotation_period_h: number
   color: string
   texture: string | null
@@ -79,7 +80,7 @@ export type OrbitalElements = {
 export type BodyEphemeris = {
   body_id: string
   samples: StateSample[]
-  daily_orbits: OrbitalElements[] | null // only the Moon; planet orbits come from /api/orbits
+    daily_orbits: OrbitalElements[] | null // the orbit for every day (null in years downloaded before this change)
 }
 
 // GET /api/ephemeris/year

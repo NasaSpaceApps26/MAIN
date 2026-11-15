@@ -1,5 +1,5 @@
 import { Vector3 } from 'three'
-import type { OrbitalElements, StateSample } from '../../api/types'
+import type { EphemerisYear, OrbitalElements, StateSample } from '../../api/types'
 import { eclipticKmToScene } from './scale'
 
 const DEG = Math.PI / 180
@@ -86,4 +86,31 @@ export function orbitEllipse(el: OrbitalElements, segments = 512): Vector3[] {
     )
   }
   return points
+}
+
+const EARTH_CENTER = '500@399'
+
+/** Positions of the planet a body goes around (Earth, for the Moon). Nothing for planets. */
+export function parentSamplesOf(year: EphemerisYear | undefined, bodyId: string) {
+  const center = year?.bodies[bodyId]?.daily_orbits?.[0]?.center
+  return center === EARTH_CENTER ? year?.bodies.earth?.samples : undefined
+}
+
+const parentPos = new Vector3()
+
+/**
+ * Where a body is DRAWN: the same as positionAt, except that a moon's distance from its planet
+ * is multiplied by `orbitScale`. Used at big planet sizes so the Moon stays outside Earth.
+ */
+export function drawnPositionAt(
+  samples: StateSample[],
+  parentSamples: StateSample[] | undefined,
+  tMs: number,
+  orbitScale: number,
+  out: Vector3,
+): Vector3 {
+  positionAt(samples, tMs, out)
+  if (!parentSamples || orbitScale === 1) return out
+  positionAt(parentSamples, tMs, parentPos)
+  return out.sub(parentPos).multiplyScalar(orbitScale).add(parentPos) // stretch away from the planet
 }
