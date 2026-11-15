@@ -13,6 +13,8 @@ import { drawnPositionAt } from './orbitMath'
 import { PlainSurface, TexturedSurface } from './PlanetSurface'
 import { moonOrbitScale, radiusToUnits, spheroidRadii, type Shape } from './scale'
 import { SiteMarkers } from './SiteMarkers'
+import { SaturnRings } from './SaturnRings'
+import { HistoricLandings, MoonFeatures } from './HistoricLandings'
 
 const labelStyle = {
   transform: 'translate(-50%, 4px)', // centred, just under the point it's attached to
@@ -63,6 +65,7 @@ export function CelestialBody({ body, samples, parentSamples }: Props) {
   const label = useRef<HTMLButtonElement>(null)
   const selectBody = useSimStore((s) => s.selectBody)
   const planetSize = useSimStore((s) => s.planetSize)
+  const showPoints = useSimStore((s) => s.showPoints) // TopBar "Points" toggle
 
   // Real shape: wider at the equator than pole to pole (Saturn ~10%, Jupiter ~6.5%)
   const radius = radiusToUnits(body.radius_km, body.id, planetSize)
@@ -148,12 +151,24 @@ export function CelestialBody({ body, samples, parentSamples }: Props) {
         ) : (
           plainSurface
         )}
+        {/* Saturn's rings: inside `spin`, so they lie in its (tilted) equator and grow with the planet */}
+        {body.id === 'saturn' && (
+          <Suspense fallback={null}>
+            <SaturnRings equatorialRadius={equatorial} />
+          </Suspense>
+        )}
         {/* Landing sites on the Moon. Inside `spin`, so they turn with the surface. */}
-        {body.id === 'moon' && (
-          <SiteMarkers bodyId="moon" equatorialRadius={equatorial} flattening={flattening} />
+        {body.id === 'moon' && showPoints && (
+          <>
+            <SiteMarkers bodyId="moon" equatorialRadius={equatorial} flattening={flattening} />
+            {/* Red dots: where notable missions landed */}
+            <HistoricLandings equatorialRadius={equatorial} flattening={flattening} />
+            {/* Blue dots: special places (craters, mountains, rovers...) */}
+            <MoonFeatures equatorialRadius={equatorial} flattening={flattening} />
+          </>
         )}
         {/* Launch sites on Earth: only the ones with a 3D model. Click a dot to choose it for the mission. */}
-        {body.id === 'earth' && <LaunchSites radius={equatorial} />}
+        {body.id === 'earth' && showPoints && <LaunchSites radius={equatorial} />}
       </group>
       {/* At true scale planets are smaller than a pixel, so a clickable label marks each one */}
       <group ref={labelAnchor}>

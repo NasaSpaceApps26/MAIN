@@ -178,6 +178,82 @@ export function moonNormal(lat: number, lon: number): [number, number, number] {
   v3.sub(v4).cross(v1.sub(v2)).normalize()
   return [v3.x, v3.y, v3.z]
 }
+/** Lowest real height (m) in each BLOCK × BLOCK patch of DEM pixels, built once on first use. */
+const BLOCK = 4
+let lowGrid: Float32Array | null = null
+let lowGridOf: Uint16Array | null = null
+function lowestGrid() {
+  if (lowGrid && lowGridOf === pixels) return lowGrid
+  if (!meta || !pixels) return null
+  const cols = meta.width / BLOCK, rows = meta.height / BLOCK
+  const grid = new Float32Array(cols * rows)
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      let low = 65535
+      for (let y = r * BLOCK; y < (r + 1) * BLOCK; y++) {
+        const row = y * meta.width
+        for (let x = c * BLOCK; x < (c + 1) * BLOCK; x++) low = Math.min(low, pixels[row + x])
+      }
+      grid[r * cols + c] = decode(low)
+    }
+  }
+  lowGrid = grid
+  lowGridOf = pixels
+  return grid
+}
+
+/**
+ * Lowest real height (m) within ±halfLat × ±halfLon degrees of a point (whole DEM blocks, so no pit
+ * is missed). Used for the backup globe, so its coarse triangles stay UNDER the detailed tiles.
+ */
+function lowestHeight(lat: number, lon: number, halfLat: number, halfLon: number) {
+  const grid = lowestGrid()
+  if (!grid || !meta) return moonHeight(lat, lon)
+  const cols = meta.width / BLOCK, rows = meta.height / BLOCK
+  const top = Math.max(0, Math.floor((90 - lat - halfLat) / 180 * rows))
+  const bottom = Math.min(rows - 1, Math.floor((90 - lat + halfLat) / 180 * rows))
+  const wholeRow = halfLon >= 180 || bottom === rows - 1 && lat - halfLat <= -89 || top === 0 && lat + halfLat >= 89
+  const left = Math.floor(((lon - halfLon + 180) / 360) * cols)
+  const right = Math.floor(((lon + halfLon + 180) / 360) * cols)
+  let lowest = Infinity
+  for (let r = top; r <= bottom; r++) {
+    const row = r * cols
+    if (wholeRow) {
+      for (let c = 0; c < cols; c++) lowest = Math.min(lowest, grid[row + c])
+    } else {
+      for (let c = left; c <= right; c++) lowest = Math.min(lowest, grid[row + ((c % cols) + cols) % cols])
+    }
+  }
+  return lowest
+}
+
+/**
+ * Shapes the backup globe (a coarse grid, see globeMesh.ts) to the terrain. Each vertex takes the
+ * LOWEST height around it (`halfLatOf(i)` / `halfLonDeg`: the grid spacing there), so every triangle
+ * lies just under the real surface: the detailed tiles always cover it, but where a tile is missing
+ * the step down to the backup globe is small instead of a cliff. Shading uses the real slope.
+ */
+export function deformMoonBackup(
+  geometry: BufferGeometry, halfLatOf: (vertex: number) => number, halfLonDeg: number,
+) {
+  const positions = geometry.getAttribute('position')
+  const normals = geometry.getAttribute('normal')
+  const exaggeration = terrainExaggeration()
+  for (let i = 0; i < positions.count; i++) {
+    const lat = Math.asin(Math.max(-1, Math.min(1, normals.getY(i)))) * 180 / Math.PI
+    const lon = Math.atan2(-normals.getZ(i), normals.getX(i)) * 180 / Math.PI
+    // away from the equator a degree of longitude is shorter: widen the window to cover the same ground
+    const halfLon = halfLonDeg / Math.max(0.02, Math.cos(lat * Math.PI / 180))
+    const r = 1 + lowestHeight(lat, lon, halfLatOf(i), halfLon) * exaggeration / MOON_RADIUS_M
+    const a = lat * Math.PI / 180, b = lon * Math.PI / 180
+    positions.setXYZ(i, r * Math.cos(a) * Math.cos(b), r * Math.sin(a), -r * Math.cos(a) * Math.sin(b))
+    normals.setXYZ(i, ...moonNormal(lat, lon))
+  }
+  positions.needsUpdate = true
+  normals.needsUpdate = true
+  geometry.computeBoundingSphere()
+}
+
 export function deformMoonGeometry(geometry: BufferGeometry) {
   const positions = geometry.getAttribute('position')
   const normals = geometry.getAttribute('normal')

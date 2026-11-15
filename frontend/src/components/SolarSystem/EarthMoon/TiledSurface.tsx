@@ -63,8 +63,12 @@ export function TiledSurface({ bodyId, shape, flattening, color }: Props) {
     surfaceBelowCamera[bodyId] = below
   })
   return <>
-    {/* The backup globe sits a bit under the tiles. Taller terrain needs a bigger gap. */}
-    <group scale={shape[0] * (1 - 0.003 * relief)}>
+    {/* The backup globe: built from the LOWEST terrain around each vertex (globeMesh.ts), so it already
+        stays under the tiles; the tiny extra gap (~90 m) only avoids flicker where they touch.
+        It used to be sunk by 0.3% × relief (26-37 km), which made the polar caps and every loaded tile
+        stand out of it like plateaus. Earth has no terrain: its flat tiles sag more between
+        vertices than the globe does, so it keeps the old 0.3% gap. */}
+    <group scale={shape[0] * (lunar ? 1 - 0.00005 : 0.997)}>
       {north && south ? <>
         <Part geometry={globe.band} map={base} color={color} />
         <Part geometry={globe.north} map={north} color={color} />

@@ -1,5 +1,7 @@
 import type { Site } from '../../api/types'
 import type { LandingPoint } from '../../store/simStore'
+import { historicLandingById } from '../../components/SolarSystem/moonLandingsData'
+import { moonFeatureById } from '../../components/SolarSystem/moonFeaturesData'
 
 /** Colours shared by the Moon markers, the mission panel and the results map. */
 export const ACTIVE_COLOUR = '#ffd23f' // the landing point being edited / looked at
@@ -14,13 +16,18 @@ export function siteAt(latDeg: number, lonDeg: number, sites?: Site[]) {
 }
 
 /**
- * Name for a landing point: the lunar site chosen (also when it was picked by its coordinates, on
- * the Lunar Sky map or typed in), or "Selected point" for a place of the user's own ("Selected
- * point 2" in the second slot, …).
+ * Name for a landing point: the lunar site, historic landing or Moon feature it came from (also a
+ * lunar site picked by its coordinates, on the Lunar Sky map or typed in), or "Selected point" for
+ * a place of the user's own ("Selected point 2" in the second slot, …).
  */
 export function landingLabel(point: LandingPoint | null, slot: number, sites?: Site[]) {
   if (!point) return 'Not set'
-  if (point.siteId) return sites?.find((s) => s.id === point.siteId)?.name ?? point.siteId
+  if (point.siteId) {
+    return sites?.find((s) => s.id === point.siteId)?.name
+      ?? historicLandingById(point.siteId)?.name
+      ?? moonFeatureById(point.siteId)?.name
+      ?? point.siteId
+  }
   const site = siteAt(point.latDeg, point.lonDeg, sites)
   if (site) return site.name
   return slot === 0 ? 'Selected point' : `Selected point ${slot + 1}`

@@ -9,6 +9,7 @@ import { Quaternion, Vector3 } from 'three'
  *    rotation angle), so the launch-site dots are where the mission simulation launches from.
  *  - Moon: the IAU model with its wobbles, the same one the mission simulation (misja.py) uses,
  *    so the near side faces Earth and the landing points are where the simulated lander touches down.
+ *  - Saturn: its IAU pole (tilted ~27° to its orbit), so its rings lean the way they really do.
  *  - everything else: a spin around the scene's "up" axis, one turn per rotation period.
  *
  * Everything that needs to know where a point of the surface is (the planet mesh, the altitude
@@ -84,6 +85,15 @@ export function bodyOrientation(body: Spinning, tMs: number, out: Quaternion): Q
     out.multiply(q.setFromAxisAngle(Y, (ra + 90) * DEG))
     out.multiply(q.setFromAxisAngle(X, (90 - dec) * DEG))
     return out.multiply(q.setFromAxisAngle(Y, W * DEG))
+  }
+  if (body.id === 'saturn') {
+    // IAU/WGCCRE (Archinal et al. 2018): pole α = 40.589 − 0.036T, δ = 83.537 − 0.004T, W = 38.90 + 810.7939024d
+    const d = daysFromJ2000(tMs)
+    const T = d / 36525
+    out.setFromAxisAngle(X, -OBLIQUITY)
+    out.multiply(q.setFromAxisAngle(Y, (40.589 - 0.036 * T + 90) * DEG))
+    out.multiply(q.setFromAxisAngle(X, (90 - (83.537 - 0.004 * T)) * DEG))
+    return out.multiply(q.setFromAxisAngle(Y, ((38.9 + 810.7939024 * d) % 360) * DEG))
   }
   const hours = tMs / 3_600_000
   return out.setFromAxisAngle(Y, (hours / body.rotation_period_h) * Math.PI * 2)

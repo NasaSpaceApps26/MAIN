@@ -1,10 +1,10 @@
-import { deformMoonGeometry } from './moonTerrain'
+import { deformMoonBackup } from './moonTerrain'
 import { BufferAttribute, BufferGeometry } from 'three'
 import { latLonToLocal } from '../sitePosition'
 
-const LON_SEGMENTS = 256
-const BAND_ROWS = 64
-const CAP_ROWS = 48
+const LON_SEGMENTS = 512
+const BAND_ROWS = 128
+const CAP_ROWS = 96
 const DEG = Math.PI / 180
 
 export function buildBandGeometry(flattening: number, capLat: number, lunar = false) {
@@ -79,7 +79,14 @@ function buildGrid(
   geometry.setAttribute('normal', new BufferAttribute(normals, 3))
   geometry.setAttribute('uv', new BufferAttribute(uvs, 2))
   geometry.setIndex(indices)
-  if (lunar) deformMoonGeometry(geometry)
+  if (lunar) {
+    // each vertex looks one grid step around itself (rows can be unevenly spaced, so per row)
+    const rowGap = lats.map((lat, i) => Math.max(
+      i > 0 ? Math.abs(lat - lats[i - 1]) : 0,
+      i < lats.length - 1 ? Math.abs(lats[i + 1] - lat) : 0,
+    ))
+    deformMoonBackup(geometry, (vertex) => rowGap[Math.floor(vertex / n)], 360 / LON_SEGMENTS)
+  }
   return geometry
 }
 

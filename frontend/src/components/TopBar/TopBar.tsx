@@ -9,6 +9,8 @@ export function TopBar() {
   const setPlanetSize = useSimStore((s) => s.setPlanetSize)
   const shadows = useSimStore((s) => s.shadows)
   const setShadows = useSimStore((s) => s.setShadows)
+  const showPoints = useSimStore((s) => s.showPoints)
+  const setShowPoints = useSimStore((s) => s.setShowPoints)
 
   const buttonClass = (active: boolean) =>
     active ? `${styles.size} ${styles.active}` : styles.size
@@ -32,6 +34,18 @@ export function TopBar() {
               On
             </button>
             <button className={buttonClass(!shadows)} onClick={() => setShadows(false)}>
+              Off
+            </button>
+          </div>
+        </div>
+        {/* Off: hides all site dots on Earth and the Moon (launch sites, landing sites, historic landings) */}
+        <div className={styles.sizeBox}>
+          <span className={styles.sizeLabel}>Points</span>
+          <div className={styles.sizes} role="group" aria-label="Points">
+            <button className={buttonClass(showPoints)} onClick={() => setShowPoints(true)}>
+              On
+            </button>
+            <button className={buttonClass(!showPoints)} onClick={() => setShowPoints(false)}>
               Off
             </button>
           </div>
