@@ -1,11 +1,11 @@
-import { useEffect, useMemo, useRef } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import { BufferAttribute, BufferGeometry, Group, Vector3 } from 'three'
 import type { StateSample } from '../../api/types'
 import { positionAt } from '../../components/SolarSystem/orbitMath'
 import { useSimStore } from '../../store/simStore'
-import { type FlightPath, countUpTo, drawScaleFor, flightPathOf, phaseSpeed, warpFromMoon } from './flightPath'
+import { type FlightPath, countUpTo, drawScaleFor, flightPathOf, phaseSpeed, turnWithMoon, warpFromMoon } from './flightPath'
 import { rocketTracker, useMissionStore } from './missionStore'
 
 const OBLIQUITY = (23.439291111 * Math.PI) / 180
@@ -61,6 +61,17 @@ function PathLines({ path, earth, moon }: { path: FlightPath } & Required<Props>
   const m = useLine(drawn.moon, path.moonLine.colors)
   const v = useMemo(() => ({ earth: new Vector3(), moon: new Vector3(), tmp: new Vector3() }), [])
 
+  // Touchdown: the clock stops there. When it is started again by hand, this mission's path
+  // disappears (the rocket and the landing site stay). A newly computed flight shows its path again.
+  const [hiddenFor, setHiddenFor] = useState<FlightPath | null>(null)
+  const pathHidden = hiddenFor === path
+  const lastTS = useRef<number | null>(null) // tS in the previous frame, to see the touchdown being crossed
+  const stoppedAtTouchdown = useRef(false)
+  useEffect(() => {
+    lastTS.current = null
+    stoppedAtTouchdown.current = false
+  }, [path])
+
   useEffect(
     () => () => {
       for (const g of [e.all, e.flown, m.all, m.flown]) g.dispose()
@@ -71,7 +82,24 @@ function PathLines({ path, earth, moon }: { path: FlightPath } & Required<Props>
 
   useFrame(() => {
     const sim = useSimStore.getState()
-    const tS = (sim.simTimeMs - path.launchMs) / 1000
+    let tS = (sim.simTimeMs - path.launchMs) / 1000
+
+    // the clock runs over the touchdown: stop it exactly there. Not with togglePlay(): pausing by
+    // hand also moves the planned launch time to the clock, which would change the mission.
+    const touchdown = path.touchdownS
+    const before = lastTS.current
+    lastTS.current = tS
+    if (touchdown !== null && sim.isPlaying && before !== null && before < touchdown && tS >= touchdown) {
+      const touchdownMs = path.launchMs + touchdown * 1000
+      useSimStore.setState({ isPlaying: false, simTimeMs: touchdownMs })
+      tS = touchdown
+      lastTS.current = tS
+      stoppedAtTouchdown.current = true
+    } else if (stoppedAtTouchdown.current && sim.isPlaying) {
+      // started again by hand after the stop: hide this mission's path
+      stoppedAtTouchdown.current = false
+      setHiddenFor(path)
+    }
     positionAt(earth, sim.simTimeMs, v.earth)
     positionAt(moon, sim.simTimeMs, v.moon)
     v.moon.sub(v.earth).multiplyScalar(scale.orbit).add(v.earth) // where the Moon is drawn
@@ -88,17 +116,27 @@ function PathLines({ path, earth, moon }: { path: FlightPath } & Required<Props>
     }
     m.flown.setDrawRange(0, countUpTo(path.moonLine.times, tS))
 
+    // after the last sample the flight data stops, but the Moon keeps turning: what is on the
+    // surface (the landed spacecraft, the landing site) turns with it instead of staying behind
+    const endMs = path.launchMs + path.endS * 1000
+    const afterEnd = tS > path.endS
+
     // the spacecraft; before liftoff it stands on the pad and turns with Earth
     if (rocket.current) {
       if (tS < 0) {
         path.spacecraft(0, v.earth, v.moon, v.tmp, scale).sub(v.earth)
         v.tmp.applyAxisAngle(EARTH_POLE, EARTH_SPIN * tS)
         rocket.current.position.copy(v.earth).add(v.tmp)
+      } else if (afterEnd && path.endsOnSurface) {
+        turnWithMoon(path.fromMoon(path.endS, v.tmp), endMs, sim.simTimeMs)
+        rocket.current.position.copy(v.moon).add(warpFromMoon(v.tmp, scale))
       } else path.spacecraft(tS, v.earth, v.moon, rocket.current.position, scale)
       rocketTracker.active = true
       rocketTracker.position.copy(rocket.current.position)
     }
-    site.current?.position.copy(v.moon).add(warpFromMoon(path.site(tS, v.tmp), scale))
+    path.site(Math.min(tS, path.endS), v.tmp)
+    if (afterEnd) turnWithMoon(v.tmp, endMs, sim.simTimeMs)
+    site.current?.position.copy(v.moon).add(warpFromMoon(v.tmp, scale))
 
     const st = path.state(Math.max(tS, 0))
     rocketTracker.phase = tS < 0 ? 'On the launch pad' : st.phase
@@ -121,7 +159,7 @@ function PathLines({ path, earth, moon }: { path: FlightPath } & Required<Props>
 
   return (
     <>
-      <group ref={earthGroup}>
+      <group ref={earthGroup} visible={!pathHidden}>
         <line>
           <primitive object={e.all} attach="geometry" />
           <lineBasicMaterial vertexColors transparent opacity={0.3} depthWrite={false} />
@@ -131,7 +169,7 @@ function PathLines({ path, earth, moon }: { path: FlightPath } & Required<Props>
           <lineBasicMaterial vertexColors />
         </line>
       </group>
-      <group ref={moonGroup}>
+      <group ref={moonGroup} visible={!pathHidden}>
         <line>
           <primitive object={m.all} attach="geometry" />
           <lineBasicMaterial vertexColors transparent opacity={0.3} depthWrite={false} />

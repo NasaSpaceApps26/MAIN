@@ -1,4 +1,5 @@
-import { Color, Vector3 } from 'three'
+import { Color, Quaternion, Vector3 } from 'three'
+import { bodyOrientation } from '../../components/SolarSystem/bodyFrame'
 import { KM_PER_UNIT, moonOrbitScale, moonReliefScale, radiusToUnits } from '../../components/SolarSystem/scale'
 import type { MissionTrajectory } from './types'
 
@@ -214,6 +215,31 @@ export class FlightPath {
     return out.lerp(viaMoon, w)
   }
 
+  /** Spacecraft relative to the Moon's centre at `tS` (real km, not stretched), in scene units. */
+  fromMoon(tS: number, out: Vector3): Vector3 {
+    const [i, f] = this.locate(tS)
+    this.lerp(this.tr.r, i, f, out)
+    return out.sub(this.lerp(this.tr.moon, i, f, this.b))
+  }
+
+  /**
+   * Seconds from liftoff of the touchdown: the first sample "On the surface", or the end of the data
+   * when the flight ends on the ground. null when it never lands.
+   */
+  get touchdownS(): number | null {
+    if (this.touchdown === undefined) {
+      const k = this.tr.phase.findIndex((p) => this.tr.phases[p].startsWith('On the surface'))
+      this.touchdown = k >= 0 ? this.t[k] : this.endsOnSurface ? this.endS : null
+    }
+    return this.touchdown
+  }
+  private touchdown: number | null | undefined
+
+  /** True when the flight ends standing on the Moon (the last sample is on the ground). */
+  get endsOnSurface() {
+    return this.tr.alt_moon_km[this.n - 1] < 1
+  }
+
   /** Landing site relative to the Moon's centre at `tS`, in scene units. */
   site(tS: number, out: Vector3): Vector3 {
     const [i, f] = this.locate(tS)
@@ -239,6 +265,22 @@ export class FlightPath {
       massKg: this.tr.mass_kg[k],
     }
   }
+}
+
+/** Only the id matters: bodyOrientation turns the Moon by its IAU model, as CelestialBody draws it. */
+const MOON_BODY = { id: 'moon', rotation_period_h: 655.72 }
+const turnAtEnd = new Quaternion()
+const turnNow = new Quaternion()
+
+/**
+ * The trajectory stops at its last sample (just after touchdown), but the clock and the Moon keep
+ * turning. A point given relative to the Moon's centre at the END of the trajectory is turned
+ * with the Moon to `nowMs` (in place), so it stays on the same spot of the surface.
+ */
+export function turnWithMoon(v: Vector3, endMs: number, nowMs: number) {
+  bodyOrientation(MOON_BODY, endMs, turnAtEnd).invert() // scene -> Moon's own frame at the end
+  bodyOrientation(MOON_BODY, nowMs, turnNow) // Moon's own frame -> scene now
+  return v.applyQuaternion(turnAtEnd).applyQuaternion(turnNow)
 }
 
 /** Number of samples of `times` at or before `tS` (how much of a line is already flown). */
