@@ -11,6 +11,9 @@ export const KM_PER_UNIT = 1_000_000
  *  - moonOrbit: how many times further the Moon is drawn from Earth than in reality.
  *    Big planets would swallow the Moon's real orbit (at ×250 Earth's radius is already 4× the
  *    Earth–Moon distance), so the orbit grows with the size. Not to scale, but always clearly visible.
+ *  - moonRelief: how many times taller the Moon's mountains and deeper its craters are drawn,
+ *    ON TOP of the Moon's own upsize. It grows with the Moon (+20% per step, like moonSize).
+ *    It can't be as big as moonSize: the lowest crater would then go past the Moon's centre.
  * "Off" shows everything at its true size and distance.
  */
 export const SIZE_OPTIONS: {
@@ -18,18 +21,22 @@ export const SIZE_OPTIONS: {
   sunSize: number
   moonSize: number
   moonOrbit: number
+  moonRelief: number
   label: string
 }[] = [
-  { size: 1, sunSize: 1, moonSize: 1, moonOrbit: 1, label: 'Off' },
-  { size: 250, sunSize: 25, moonSize: 500, moonOrbit: 15, label: '×250' },
-  { size: 500, sunSize: 25, moonSize: 600, moonOrbit: 25, label: '×500' },
-  { size: 1000, sunSize: 25, moonSize: 720, moonOrbit: 50, label: '×1000' },
+  { size: 1, sunSize: 1, moonSize: 1, moonOrbit: 1, moonRelief: 1, label: 'Off' },
+  { size: 250, sunSize: 25, moonSize: 500, moonOrbit: 15, moonRelief: 5, label: '×250' },
+  { size: 500, sunSize: 25, moonSize: 600, moonOrbit: 25, moonRelief: 6, label: '×500' },
+  { size: 1000, sunSize: 25, moonSize: 720, moonOrbit: 50, moonRelief: 7.2, label: '×1000' },
 ]
 
 const optionFor = (size: number) => SIZE_OPTIONS.find((o) => o.size === size) ?? SIZE_OPTIONS[0]
 
 /** How much the Moon's distance from Earth is stretched at this planet size */
 export const moonOrbitScale = (size: number) => optionFor(size).moonOrbit
+
+/** How much the Moon's terrain height is stretched at this planet size */
+export const moonReliefScale = (size: number) => optionFor(size).moonRelief
 
 /** Drawn radius in scene units. `size` is the planet size picked in the top bar. */
 export function radiusToUnits(radiusKm: number, bodyId: string, size = 1) {

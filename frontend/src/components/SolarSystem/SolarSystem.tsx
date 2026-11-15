@@ -4,6 +4,7 @@ import { Stars } from '@react-three/drei'
 import { useBodies, useEphemerisYear, useOrbits } from '../../api/hooks'
 import { useSimStore } from '../../store/simStore'
 import { CameraFollow } from './CameraFollow'
+import { CameraViewButtons, CameraViewDriver } from './CameraViews'
 import { CelestialBody } from './CelestialBody'
 import { ClockDriver } from './ClockDriver'
 import { FlyCamera } from './FlyCamera'
@@ -11,6 +12,7 @@ import { Lights } from './Lights'
 import { OrbitLine } from './OrbitLine'
 import { parentSamplesOf } from './orbitMath'
 import { moonOrbitScale } from './scale'
+import { SurfaceReadoutPanel, SurfaceReadoutTracker } from './SurfaceReadout'
 
 const DAY_MS = 86_400_000
 const WINDOW_DAYS = 366 // must match WINDOW_DAYS in backend/app/services/horizons_year.py
@@ -71,7 +73,12 @@ export function SolarSystem() {
         })}
         <FlyCamera bodies={bodies} year={year} />
         {bodies && year && <CameraFollow bodies={bodies} year={year} />}
+        {bodies && year && <CameraViewDriver bodies={bodies} year={year} />}
+        {bodies && <SurfaceReadoutTracker bodies={bodies} year={year} />}
       </Canvas>
+
+      <SurfaceReadoutPanel />
+      <CameraViewButtons />
 
       {(isFetching || isError) && (
         <div style={statusStyle}>
