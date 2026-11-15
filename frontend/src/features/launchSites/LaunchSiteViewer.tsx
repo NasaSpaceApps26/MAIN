@@ -2,6 +2,7 @@ import { useEffect, useState, type ComponentType } from 'react'
 import { Canvas, useThree } from '@react-three/fiber'
 import { OrbitControls } from '@react-three/drei'
 import { useSimStore } from '../../store/simStore'
+import { followFlight } from '../mission/missionStore'
 import { CapeCanaveralModel } from './models/CapeCanaveralModel'
 import { KennedyModel } from './models/KennedyModel'
 import { VandenbergModel } from './models/VandenbergModel'
@@ -14,8 +15,11 @@ import { LaunchClock, LaunchPanel } from './launch/LaunchPanel'
 import { useLaunchStore } from './launch/launchStore'
 import styles from './LaunchSiteViewer.module.css'
 
-/** After liftoff the window closes on its own after this many seconds, back to the space view. */
-const AUTO_CLOSE_AFTER_LIFTOFF_S = 18
+/**
+ * After liftoff the window closes on its own after this many seconds, back to the space view
+ * (which then follows the rocket, if its flight is computed).
+ */
+const AUTO_CLOSE_AFTER_LIFTOFF_S = 14
 
 const MODELS: Record<LaunchSiteId, ComponentType> = {
   ksc: KennedyModel,
@@ -68,15 +72,21 @@ function ViewerWindow({ siteId, onClose }: { siteId: LaunchSiteId; onClose: () =
     return resetLaunch
   }, [activeId, resetLaunch])
 
-  // T+18 s: close the window. A real-time timer from liftoff, because the flight's own clock stops
+  // T+14 s: close the window. A real-time timer from liftoff, because the flight's own clock stops
   // early when the rocket fades into the haze. Scrubbing or resetting the launch cancels it.
+  // With a computed flight from this site (mission panel, step 4) the space view takes over right
+  // there: the clock jumps to T+14 s of the flight and the camera follows the rocket to the Moon.
   const run = useLaunchStore((s) => s.run)
   const lifted = useLaunchStore((s) => s.phase === 'flight' || s.phase === 'done')
   useEffect(() => {
     if (!lifted) return
-    const timer = setTimeout(() => useSimStore.getState().openLaunchSite(null), AUTO_CLOSE_AFTER_LIFTOFF_S * 1000)
+    const timer = setTimeout(() => {
+      const sim = useSimStore.getState()
+      if (sim.missionSites[sim.activeSiteSlot] === activeId) followFlight(AUTO_CLOSE_AFTER_LIFTOFF_S)
+      sim.openLaunchSite(null)
+    }, AUTO_CLOSE_AFTER_LIFTOFF_S * 1000)
     return () => clearTimeout(timer)
-  }, [lifted, run])
+  }, [lifted, run, activeId])
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -127,7 +137,7 @@ function ViewerWindow({ siteId, onClose }: { siteId: LaunchSiteId; onClose: () =
             <LaunchPrewarm key={`prewarm-${activeId}`} />
           </Canvas>
           <LaunchClock />
-          <LaunchPanel key={activeId} pads={active.pads} />
+          <LaunchPanel key={activeId} siteId={activeId} pads={active.pads} />
           <p className={styles.hint}>Drag to rotate · scroll to zoom · right-drag to pan</p>
         </div>
 

@@ -3,6 +3,8 @@ import { useLunarSites } from '../../api/hooks'
 import { LAUNCH_SITES, siteById, type LaunchSiteId } from '../../features/launchSites/sites'
 import { ROCKETS, type RocketId } from '../../features/mission/flightPlan'
 import { landingLabel } from '../../features/mission/landing'
+import { useFlight, useFlightStatus, useMissionStore } from '../../features/mission/missionStore'
+import type { MissionMode } from '../../features/mission/types'
 import { MAX_LANDING_POINTS, missionReady, useSimStore } from '../../store/simStore'
 import { moonHeight, terrainDataset, useMoonTerrain } from '../SolarSystem/EarthMoon/moonTerrain'
 import styles from './MissionPanel.module.css'
@@ -29,6 +31,14 @@ function parseDegrees(text: string, limit: number) {
 /** UTC ms ↔ the value of a datetime-local input, read as UTC ('1969-07-16T13:32'). */
 const toUtcInput = (ms: number) => new Date(ms).toISOString().slice(0, 16)
 const fromUtcInput = (value: string) => Date.parse(`${value}:00Z`)
+
+/** The two ways the mission simulation can fly (misja.py's modes). */
+const MODES: { id: MissionMode; label: string; hint: string }[] = [
+  { id: 'szybki', label: 'Fastest', hint: 'Shortest flight the fuel allows, with reserves' },
+  { id: 'oszczedny', label: 'Least fuel', hint: 'Slower flight (about 4 days), least propellant' },
+]
+
+const pad2 = (n: number) => String(Math.floor(n)).padStart(2, '0')
 
 type CoordFormProps = {
   label: string // what the coordinates are for (read out by screen readers)
@@ -96,6 +106,10 @@ function CoordForm({ label, lat, lon, onSet }: CoordFormProps) {
  *  3. Landing points on the Moon: one or more (＋ adds another to compare). Type coordinates, click a
  *     named lunar site, or switch on "Pick on Moon" and click the Moon's surface (only then does a
  *     click on the Moon pick a point). Each fills the highlighted slot.
+ *  4. Flight: the mission simulation (backend, misja.py) computes the whole flight from the
+ *     highlighted launch site to the highlighted landing point, from the launch time on. Once it is
+ *     computed, a launch in the 3D model is followed into space (see LaunchSiteViewer) and the
+ *     flight is drawn in the space view (MissionScene) with its details in the Flight panel.
  * "Go to launch site" opens the 3D model of the highlighted site; its Launch button stays locked until
  * the mission is complete (see LaunchPanel). "Mission results" opens the analysis (MissionResults).
  */
@@ -110,6 +124,12 @@ export function MissionPanel() {
   const ready = useSimStore(missionReady)
   const { data: lunarSites } = useLunarSites()
   const terrain = useMoonTerrain(picking) // picking needs the Moon's heights: start loading them
+  const mode = useMissionStore((s) => s.mode)
+  const elapsedS = useMissionStore((s) => s.elapsedS)
+  const flightError = useMissionStore((s) => s.error)
+  const flight = useFlight() // computed for exactly what this panel shows, else null
+  const flightStatus = useFlightStatus()
+  const computing = flightStatus === 'queued' || flightStatus === 'running'
 
   const activeId = missionSites[activeSlot] ?? null
   const activeSite = activeId ? siteById(activeId) : null
@@ -162,7 +182,28 @@ export function MissionPanel() {
     ? 'Choose a launch site: click a red dot on Earth, pick one from the list or type its coordinates.'
     : !anyLanding
       ? 'Launch stays locked until the landing point on the Moon is set.'
-      : 'All set: open the launch site to fly it, or the results to compare.'
+      : flight
+        ? 'Flight computed: open the launch site and launch to follow the rocket to the Moon, or the results to compare.'
+        : 'All set: compute the flight (4) to follow the rocket into space, open the launch site, or the results to compare.'
+
+  // step 4: what the flight computation says
+  const flightText = !activeSite || !point
+    ? 'Needs a highlighted site and point'
+    : computing
+      ? flightStatus === 'queued'
+        ? 'Waiting for a free slot…'
+        : `Simulating… ${Math.floor(elapsedS / 60)}:${pad2(elapsedS % 60)}`
+      : flightStatus === 'error'
+        ? 'Failed (hover for why)'
+        : flight
+          ? `${flight.landed ? 'Lands' : 'Does not land'} · liftoff ${new Date(flight.trajectory!.launch_ms).toISOString().slice(11, 16)} UTC`
+          : 'Not computed'
+  const flightTitle = flightStatus === 'error' ? flightError ?? '' : flight ? flight.verdict : undefined
+  const flightClass = flight
+    ? `${styles.flight} ${flight.landed ? styles.ok : styles.flightBad}`
+    : flightStatus === 'error'
+      ? `${styles.flight} ${styles.flightBad}`
+      : styles.flight
 
   return (
     <section className={styles.panel} aria-label="Mission">
@@ -340,6 +381,42 @@ export function MissionPanel() {
           lon={point?.lonDeg ?? null}
           onSet={setLandingByCoords}
         />
+      </div>
+
+      {/* 4. Flight: computed for the highlighted launch site and landing point */}
+      <div className={styles.row}>
+        <div className={styles.rowLabel}>
+          <span className={flight ? `${styles.step} ${styles.stepDone}` : styles.step}>4</span>
+          Flight
+        </div>
+        <div className={styles.slots}>
+          <select
+            className={styles.select}
+            value={mode}
+            aria-label="Mission mode"
+            title={MODES.find((m) => m.id === mode)?.hint}
+            disabled={computing}
+            onChange={(e) => useMissionStore.getState().setMode(e.target.value as MissionMode)}
+          >
+            {MODES.map((m) => (
+              <option key={m.id} value={m.id} title={m.hint}>
+                {m.label}
+              </option>
+            ))}
+          </select>
+          <button
+            type="button"
+            className={styles.small}
+            disabled={!activeSite || !point || computing}
+            title="The mission simulation searches a launch window from the launch time on (up to 3 days) and flies to the landing point"
+            onClick={() => void useMissionStore.getState().compute()}
+          >
+            {computing ? 'Computing…' : flight ? 'Recompute' : 'Compute flight'}
+          </button>
+        </div>
+        <span className={flightClass} title={flightTitle}>
+          {flightText}
+        </span>
       </div>
 
       {picking && terrain.phase !== 'ready' && (

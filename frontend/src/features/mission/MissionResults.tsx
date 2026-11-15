@@ -11,6 +11,7 @@ import { useMoonSky } from '../moonSky/useMoonSky.js'
 import '../moonSky/moonSky.css'
 import { flightPlan, rocketById, siteFactors } from './flightPlan'
 import { landingLabel } from './landing'
+import { useFlight } from './missionStore'
 import { ReliefMap } from './ReliefMap'
 import { compass, slopeAround, slopeAt } from './terrainMath'
 import styles from './MissionResults.module.css'
@@ -191,6 +192,7 @@ function ResultsWindow({ onClose }: { onClose: () => void }) {
   const { data: lunarSites } = useLunarSites()
   const terrain = useMoonTerrain(true)
   const terrainOk = terrain.phase === 'ready'
+  const flight = useFlight() // computed by the mission simulation (mission panel, step 4)
 
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -204,7 +206,13 @@ function ResultsWindow({ onClose }: { onClose: () => void }) {
 
   const rocket = rocketById(rocketId)
   const sites = missionSites.filter((id): id is LaunchSiteId => id !== null).map(siteById)
-  const plans = sites.map((site) => ({ site, plan: flightPlan(rocket, site, launchTimeMs), factors: siteFactors(site) }))
+  const plans = sites.map((site) => ({
+    site,
+    plan: flightPlan(rocket, site, launchTimeMs, flight),
+    factors: siteFactors(site),
+  }))
+  // the Flight card: the computed flight if there is one, else the first site's timeline
+  const mainPlan = (plans.find((p) => !p.plan.illustrative) ?? plans[0])?.plan
   const firstArrival = plans.length ? Math.min(...plans.map((p) => p.plan.arrivalMs)) : launchTimeMs
   const lastArrival = plans.length ? Math.max(...plans.map((p) => p.plan.arrivalMs)) : launchTimeMs
   // one fetch covers every site's touchdown: from a day before the first one, for about a lunar day
@@ -346,19 +354,19 @@ function ResultsWindow({ onClose }: { onClose: () => void }) {
           <section className={styles.card}>
             <h3 className={styles.cardTitle}>
               Flight
-              {plans[0].plan.illustrative && <span className={styles.badge}>illustrative</span>}
+              {mainPlan.illustrative && <span className={styles.badge}>illustrative</span>}
             </h3>
             <dl className={styles.facts}>
               <dt>Rocket</dt>
               <dd>{rocket.name}</dd>
               <dt>Launch</dt>
-              <dd>{fmtUtc(launchTimeMs)}</dd>
+              <dd>{fmtUtc(mainPlan.launchMs)}</dd>
               <dt>To touchdown</dt>
-              <dd>{formatDuration(Math.round(plans[0].plan.transitH * 60))}</dd>
+              <dd>{formatDuration(Math.round(mainPlan.transitH * 60))}</dd>
               <dt>Touchdown</dt>
               <dd>{sameArrival ? fmtUtc(firstArrival) : `${fmtUtc(firstArrival)} – ${fmtUtc(lastArrival)}`}</dd>
             </dl>
-            <p className={styles.note}>{plans[0].plan.method}</p>
+            <p className={styles.note}>{mainPlan.method}</p>
             <button type="button" className={styles.button} onClick={showInSpace}>
               Show touchdown in space view ▸
             </button>

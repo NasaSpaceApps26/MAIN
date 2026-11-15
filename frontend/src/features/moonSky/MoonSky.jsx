@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
 import { useSimStore } from '../../store/simStore';
-import { useMissionStore } from '../mission/missionStore';
 import { PauseIcon, PlayIcon, RestartIcon } from '../../components/icons/Icons';
 import { useMoonSky, useLandingSites } from './useMoonSky.js';
 import Controls from './components/Controls.jsx';
@@ -41,10 +40,8 @@ function readParams() {
   const fromUrl = START_RE.test(q.get('start') ?? '');
   // no range in the URL → start the range at the mission clock's current time
   const start = fromUrl ? q.get('start') : toStartInput(useSimStore.getState().simTimeMs);
-  // the landing point is shared with the Moon mission panel (which also starts from the URL)
-  const { lat, lon } = useMissionStore.getState().landing;
   return {
-    lat, lon, alt: num('alt'), start, fromUrl,
+    lat: num('lat'), lon: num('lon'), alt: num('alt'), start, fromUrl,
     days: num('days'), step: pick('step', STEPS), mode: pick('mode', MODES), thr: num('thr'), t: num('t'),
   };
 }
@@ -95,11 +92,12 @@ export default function MoonSky({ view = 'results', active = true }) {
     lat: p.lat, lon: p.lon, altKm: p.alt, start: startMs, days: p.days, step: p.step, at, mode,
   });
 
-  // keep the Moon mission's landing point and this form in step, both ways
-  useEffect(() => useMissionStore.getState().setLanding({ lat: p.lat, lon: p.lon }), [p.lat, p.lon]);
-  useEffect(() => useMissionStore.subscribe(({ landing: l }) => setP((prev) =>
-    Math.abs(prev.lat - l.lat) > 1e-6 || Math.abs(prev.lon - l.lon) > 1e-6 ? { ...prev, lat: l.lat, lon: l.lon } : prev,
-  )), []);
+  // follow the mission panel: a newly chosen landing point there shows its sky here
+  useEffect(() => useSimStore.subscribe((s, prev) => {
+    const a = s.landingPoints[s.activeLandingSlot];
+    const b = prev.landingPoints[prev.activeLandingSlot];
+    if (a && a !== b) setP((q) => (q.lat === a.latDeg && q.lon === a.lonDeg ? q : { ...q, lat: a.latDeg, lon: a.lonDeg }));
+  }), []);
 
   const site = sites.find((s) => Math.abs(s.lat - p.lat) < 1e-4 && Math.abs(s.lon - p.lon) < 1e-4);
 

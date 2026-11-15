@@ -1,7 +1,6 @@
 from fastapi import APIRouter
 
-from app.api.routes import bodies, ephemeris, health, mission, sites, trajectory
-from app.api.routes import bodies, ephemeris, health, sites, surface, terrain, trajectory
+from app.api.routes import bodies, ephemeris, health, mission, sites, surface, terrain, trajectory
 
 api_router = APIRouter()
 api_router.include_router(health.router, tags=["health"])

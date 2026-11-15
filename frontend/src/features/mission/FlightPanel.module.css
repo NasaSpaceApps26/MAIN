@@ -1,12 +1,12 @@
-/* Moon mission panel, top right over the solar system */
+/* Flight panel: top right over the solar system, left of the camera view buttons */
 .panel {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 16px;
+  right: 60px;
   z-index: 5;
   width: 300px;
   max-width: calc(100% - 24px);
-  max-height: calc(100% - 24px);
+  max-height: calc(100% - 32px);
   overflow-y: auto;
   box-sizing: border-box;
   display: flex;
@@ -23,8 +23,8 @@
 
 .tab {
   position: absolute;
-  top: 12px;
-  right: 12px;
+  top: 16px;
+  right: 60px;
   z-index: 5;
   padding: 6px 10px;
   border: 1px solid var(--line);

@@ -5,6 +5,7 @@ import { Html } from '@react-three/drei'
 import { Vector3, type Group } from 'three'
 import type { Body, StateSample } from '../../api/types'
 import { useSimStore } from '../../store/simStore'
+import { bodyOrientation } from './bodyFrame'
 import { TEXTURE_IDS } from './bodyTextures'
 import { TiledSurface } from './EarthMoon/TiledSurface'
 import { LaunchSites } from './LaunchSites' // <-- kropki
@@ -12,15 +13,6 @@ import { drawnPositionAt } from './orbitMath'
 import { PlainSurface, TexturedSurface } from './PlanetSurface'
 import { moonOrbitScale, radiusToUnits, spheroidRadii, type Shape } from './scale'
 import { SiteMarkers } from './SiteMarkers'
-
-const OBLIQUITY = (23.439291111 * Math.PI) / 180
-
-/** Earth rotation angle (IAU 2000) at Unix time `ms`: Greenwich meridian's angle from the equinox. */
-function earthRotationAngle(ms: number) {
-  const d = ms / 86_400_000 + 2440587.5 - 2451545.0 // days from J2000
-  const turns = 0.779057273264 + 0.00273781191135448 * d + (d % 1)
-  return 2 * Math.PI * (turns % 1)
-}
 
 const labelStyle = {
   transform: 'translate(-50%, 4px)', // centred, just under the point it's attached to
@@ -84,23 +76,12 @@ export function CelestialBody({ body, samples, parentSamples }: Props) {
 
   useFrame(({ camera }) => {
     const t = useSimStore.getState().simTimeMs
-    if (group.current && samples) positionAt(samples, t, group.current.position)
-    if (mesh.current) {
-      if (body.id === 'earth') {
-        // real orientation: axis tilted toward the ecliptic, turned by the Earth rotation angle,
-        // so the launch-site dots sit where the mission simulation launches from
-        mesh.current.rotation.set(-OBLIQUITY, earthRotationAngle(t), 0)
-      } else {
-        const hours = t / 3_600_000
-        mesh.current.rotation.y = (hours / body.rotation_period_h) * Math.PI * 2
-      }
     if (group.current && samples) {
       drawnPositionAt(samples, parentSamples, t, moonOrbitScale(planetSize), group.current.position)
     }
-    if (spin.current) {
-      const hours = t / 3_600_000
-      spin.current.rotation.y = (hours / body.rotation_period_h) * Math.PI * 2
-    }
+    // Earth and the Moon turned as they really are (so the launch-site dots and landing points are
+    // where the mission simulation flies from and to), the others spinning on their axis
+    if (spin.current) bodyOrientation(body, t, spin.current.quaternion)
 
     // Tell the other labels where this body is
     let drawn = drawnBodies.get(body.id)
