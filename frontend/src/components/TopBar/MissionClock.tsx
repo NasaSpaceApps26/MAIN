@@ -1,4 +1,5 @@
 import { useSimStore } from '../../store/simStore'
+import { PauseIcon, PlayIcon } from '../icons/Icons'
 import styles from './MissionClock.module.css'
 
 // Simulated seconds per real second
@@ -36,7 +37,7 @@ export function MissionClock() {
         onClick={togglePlay}
         aria-label={isPlaying ? 'Pause simulation' : 'Play simulation'}
       >
-        {isPlaying ? '❚❚' : '▶'}
+        {isPlaying ? <PauseIcon /> : <PlayIcon />}
       </button>
 
       <div className={styles.speeds} role="group" aria-label="Simulation speed">

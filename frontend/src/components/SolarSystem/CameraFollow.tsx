@@ -3,6 +3,15 @@ import { useFrame, useThree } from '@react-three/fiber'
 import { Vector3 } from 'three'
 import type { Body, EphemerisYear } from '../../api/types'
 import { useSimStore } from '../../store/simStore'
+import { positionAt } from './orbitMath'
+import { radiusToUnits } from './scale'
+import { rocketTracker } from '../../features/mission/missionStore'
+
+/** Selecting 'rocket' follows the mission spacecraft; framed as if it were a body this big. */
+const ROCKET: Body = { id: 'rocket', name: 'Spacecraft', horizons_id: '', radius_km: 4000, rotation_period_h: 1, color: '#fff', texture: null }
+
+// The only parts of drei's OrbitControls we need
+type Controls = { target: Vector3 }
 import { drawnPositionAt, parentSamplesOf } from './orbitMath'
 import { moonOrbitScale, radiusToUnits } from './scale'
 
@@ -21,6 +30,13 @@ export function CameraFollow({ bodies, year }: Props) {
   const lastBodyPos = useRef(new Vector3())
   const step = useRef(new Vector3())
 
+  useFrame(({ clock }) => {
+    const { selectedBodyId, simTimeMs } = useSimStore.getState()
+    const body =
+      selectedBodyId === 'rocket' && rocketTracker.active ? ROCKET : bodies.find((b) => b.id === selectedBodyId)
+    if (!controls || !body) {
+      lastSelected.current = null
+      flight.current = null
   useFrame(() => {
     const { selectedBodyId, simTimeMs, planetSize } = useSimStore.getState()
     const body = bodies.find((b) => b.id === selectedBodyId)
@@ -30,6 +46,28 @@ export function CameraFollow({ bodies, year }: Props) {
     }
 
     const samples = year.bodies[body.id]?.samples
+    if (body === ROCKET) bodyPos.current.copy(rocketTracker.position)
+    else if (samples) positionAt(samples, simTimeMs, bodyPos.current)
+    else bodyPos.current.set(0, 0, 0) // the Sun
+
+    // New selection: start a flight from wherever the camera is now
+    if (lastSelected.current !== body.id) {
+      lastSelected.current = body.id
+      const from = new Vector3().subVectors(camera.position, controls.target)
+      const fromDist = Math.max(from.length(), 1e-6)
+      from.normalize()
+      // Toward the Sun (at the origin), a little from above and from where we came; the Sun keeps `from`
+      const toSun = bodyPos.current.clone().negate()
+      const toDir =
+        toSun.lengthSq() > 0 ? toSun.normalize().multiplyScalar(0.85).addScaledVector(from, 0.3).addScaledVector(UP, 0.3).normalize() : from.clone()
+      flight.current = {
+        startS: clock.elapsedTime,
+        fromTarget: controls.target.clone(),
+        fromDist,
+        fromDir: from,
+        toDir,
+        toDist: radiusToUnits(body.radius_km, body.id) * VIEW_RADII,
+      }
     if (samples) {
       const parent = parentSamplesOf(year, body.id)
       drawnPositionAt(samples, parent, simTimeMs, moonOrbitScale(planetSize), bodyPos.current)

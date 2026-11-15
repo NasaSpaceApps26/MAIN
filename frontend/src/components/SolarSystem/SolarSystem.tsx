@@ -11,6 +11,7 @@ import { ClockDriver } from './ClockDriver'
 import { FlyCamera } from './FlyCamera'
 import { Lights } from './Lights'
 import { OrbitLine } from './OrbitLine'
+import { MissionScene } from '../../features/mission/MissionScene'
 import { parentSamplesOf } from './orbitMath'
 import { moonOrbitScale } from './scale'
 import { SurfaceReadoutPanel, SurfaceReadoutTracker } from './SurfaceReadout'
@@ -72,6 +73,7 @@ export function SolarSystem() {
             </group>
           )
         })}
+        <MissionScene earth={year?.bodies.earth?.samples} moon={year?.bodies.moon?.samples} />
         <FlyCamera bodies={bodies} year={year} />
         {bodies && year && <CameraFollow bodies={bodies} year={year} />}
         {bodies && year && <CameraViewDriver bodies={bodies} year={year} />}

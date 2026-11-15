@@ -54,6 +54,9 @@ export function LaunchPanel({ pads }: { pads: readonly LaunchPad[] }) {
       {pads.length === 1 && <p className={styles.single}>{pads[0].rocket}</p>}
 
       {phase === 'idle' ? (
+        <button type="button" className={styles.launch} onClick={() => current && launch(current)}>
+          Launch
+        </button>
         <>
           <button
             type="button"

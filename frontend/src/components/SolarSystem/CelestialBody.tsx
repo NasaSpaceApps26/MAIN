@@ -13,6 +13,15 @@ import { PlainSurface, TexturedSurface } from './PlanetSurface'
 import { moonOrbitScale, radiusToUnits, spheroidRadii, type Shape } from './scale'
 import { SiteMarkers } from './SiteMarkers'
 
+const OBLIQUITY = (23.439291111 * Math.PI) / 180
+
+/** Earth rotation angle (IAU 2000) at Unix time `ms`: Greenwich meridian's angle from the equinox. */
+function earthRotationAngle(ms: number) {
+  const d = ms / 86_400_000 + 2440587.5 - 2451545.0 // days from J2000
+  const turns = 0.779057273264 + 0.00273781191135448 * d + (d % 1)
+  return 2 * Math.PI * (turns % 1)
+}
+
 const labelStyle = {
   transform: 'translate(-50%, 4px)', // centred, just under the point it's attached to
   padding: '1px 6px',
@@ -75,6 +84,16 @@ export function CelestialBody({ body, samples, parentSamples }: Props) {
 
   useFrame(({ camera }) => {
     const t = useSimStore.getState().simTimeMs
+    if (group.current && samples) positionAt(samples, t, group.current.position)
+    if (mesh.current) {
+      if (body.id === 'earth') {
+        // real orientation: axis tilted toward the ecliptic, turned by the Earth rotation angle,
+        // so the launch-site dots sit where the mission simulation launches from
+        mesh.current.rotation.set(-OBLIQUITY, earthRotationAngle(t), 0)
+      } else {
+        const hours = t / 3_600_000
+        mesh.current.rotation.y = (hours / body.rotation_period_h) * Math.PI * 2
+      }
     if (group.current && samples) {
       drawnPositionAt(samples, parentSamples, t, moonOrbitScale(planetSize), group.current.position)
     }
