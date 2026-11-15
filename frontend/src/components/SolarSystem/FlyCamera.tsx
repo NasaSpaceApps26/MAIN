@@ -1,9 +1,10 @@
 import { moonUnitRadius } from './EarthMoon/moonTerrain'
 import { useEffect, useRef } from 'react'
 import { useFrame, useThree } from '@react-three/fiber'
-import { Euler, Vector3 } from 'three'
+import { Euler, Quaternion, Vector3 } from 'three'
 import type { Body, EphemerisYear } from '../../api/types'
 import { useSimStore } from '../../store/simStore'
+import { bodyOrientation } from './bodyFrame'
 import { drawnPositionAt, parentSamplesOf } from './orbitMath'
 import {
   moonOrbitScale,
@@ -30,7 +31,7 @@ type Props = {
 
 type Surface = {
   lunar: boolean
-  spin: number
+  toBody: Quaternion // scene → the body's own turning frame (see bodyFrame.ts)
   center: Vector3
   equatorial: number
   polar: number
@@ -201,7 +202,7 @@ export function FlyCamera({ bodies, year }: Props) {
 
       const surface: Surface = {
         lunar: body.id === 'moon',
-        spin: simTimeMs / 3_600_000 / body.rotation_period_h * Math.PI * 2,
+        toBody: bodyOrientation(body, simTimeMs, new Quaternion()).invert(),
         center: bodyPos.current.clone(),
         equatorial,
         polar,
@@ -356,16 +357,17 @@ export function FlyCamera({ bodies, year }: Props) {
   return null
 }
 
+const inBody = new Vector3()
+
 function terrainSurfaceRadius(p: Vector3, surface: Surface) {
+  // the camera's direction in the body's own frame: +Y is its north pole
+  const { x, y, z } = inBody.copy(p).applyQuaternion(surface.toBody)
   if (surface.lunar) {
-    const c = Math.cos(surface.spin), s = Math.sin(surface.spin)
-    const x = c * p.x - s * p.z
-    const z = s * p.x + c * p.z
-    const lat = Math.atan2(p.y, Math.hypot(x, z)) * 180 / Math.PI
+    const lat = Math.atan2(y, Math.hypot(x, z)) * 180 / Math.PI
     const lon = Math.atan2(-z, x) * 180 / Math.PI
     return surface.equatorial * moonUnitRadius(lat, lon)
   }
-  return radialRadius(p, surface.equatorial, surface.polar)
+  return radialRadius(inBody, surface.equatorial, surface.polar)
 }
 
 function radialRadius(

@@ -223,10 +223,31 @@
   border-color: var(--accent);
 }
 
+.small:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.small:disabled:hover {
+  border-color: var(--line);
+  background: none;
+}
+
 .picking {
   border-color: #ffd23f;
   background: rgba(255, 210, 63, 0.15);
   color: #ffd23f;
+}
+
+/* step 4: what the flight computation says */
+.flight {
+  color: var(--text-dim);
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.flightBad {
+  color: #ff8a7a;
 }
 
 /* under the coordinates, so it doesn't push the row around */

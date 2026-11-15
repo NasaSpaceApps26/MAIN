@@ -1,15 +1,15 @@
 import { MOON_RADIUS_M, moonHeight, terrainExaggeration, terrainReady } from './EarthMoon/moonTerrain'
 import { useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
-import { Vector3 } from 'three'
+import { Quaternion, Vector3 } from 'three'
 import type { Body, EphemerisYear } from '../../api/types'
 import { useSimStore, type SurfaceReadout } from '../../store/simStore'
+import { bodyOrientation } from './bodyFrame'
 import { surfaceBelowCamera } from './EarthMoon/surfaceStatus'
 import { drawnPositionAt, parentSamplesOf } from './orbitMath'
 import { KM_PER_UNIT, moonOrbitScale, radiusToUnits, spheroidRadii } from './scale'
 
 const UPDATE_EVERY_S = 0.2 // the numbers change 5 times a second: often enough to read
-const Y_AXIS = new Vector3(0, 1, 0)
 const DEG = 180 / Math.PI
 
 type Props = { bodies: Body[]; year?: EphemerisYear }
@@ -26,6 +26,7 @@ export function SurfaceReadoutTracker({ bodies, year }: Props) {
   const sinceUpdate = useRef(0)
   const bodyPos = useRef(new Vector3())
   const fromBody = useRef(new Vector3())
+  const turn = useRef(new Quaternion())
 
   useFrame(({ camera }, delta) => {
     sinceUpdate.current += delta
@@ -46,10 +47,10 @@ export function SurfaceReadoutTracker({ bodies, year }: Props) {
         continue // this body's positions aren't loaded yet
       }
 
-      // The camera as seen from the body, in the body's own turning frame (spun like CelestialBody)
-      const spin = (simTimeMs / 3_600_000 / body.rotation_period_h) * Math.PI * 2
+      // The camera as seen from the body, in the body's own turning frame (turned like CelestialBody)
+      const toBody = bodyOrientation(body, simTimeMs, turn.current).invert()
       const p = fromBody.current.subVectors(camera.position, bodyPos.current)
-      p.applyAxisAngle(Y_AXIS, -spin)
+      p.applyQuaternion(toBody)
 
       // How far the drawn surface is from the centre in that direction (bodies are a bit flat)
       const drawnRadius = radiusToUnits(body.radius_km, body.id, planetSize)
