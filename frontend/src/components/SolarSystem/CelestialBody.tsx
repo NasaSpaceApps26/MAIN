@@ -84,22 +84,18 @@ export function CelestialBody({ body, samples, parentSamples }: Props) {
 
   useFrame(({ camera }) => {
     const t = useSimStore.getState().simTimeMs
-    if (group.current && samples) positionAt(samples, t, group.current.position)
-    if (mesh.current) {
-      if (body.id === 'earth') {
-        // real orientation: axis tilted toward the ecliptic, turned by the Earth rotation angle,
-        // so the launch-site dots sit where the mission simulation launches from
-        mesh.current.rotation.set(-OBLIQUITY, earthRotationAngle(t), 0)
-      } else {
-        const hours = t / 3_600_000
-        mesh.current.rotation.y = (hours / body.rotation_period_h) * Math.PI * 2
-      }
     if (group.current && samples) {
       drawnPositionAt(samples, parentSamples, t, moonOrbitScale(planetSize), group.current.position)
     }
     if (spin.current) {
-      const hours = t / 3_600_000
-      spin.current.rotation.y = (hours / body.rotation_period_h) * Math.PI * 2
+      if (body.id === 'earth') {
+        // real orientation: axis tilted toward the ecliptic, turned by the Earth rotation angle,
+        // so the launch-site dots sit where the mission simulation launches from
+        spin.current.rotation.set(-OBLIQUITY, earthRotationAngle(t), 0)
+      } else {
+        const hours = t / 3_600_000
+        spin.current.rotation.y = (hours / body.rotation_period_h) * Math.PI * 2
+      }
     }
 
     // Tell the other labels where this body is

@@ -65,13 +65,21 @@
 .moon-sky .site-select { display: flex; flex-direction: column; gap: 4px; margin-bottom: 10px; color: var(--muted); font-size: 12px; }
 .moon-sky .site-select select { width: 100%; }
 .moon-sky .controls .site-select { margin-bottom: 0; } /* the form's gap already spaces it */
-.moon-sky .moonmap svg { width: 100%; height: auto; display: block; border-radius: 8px; cursor: crosshair; }
+.moon-sky .moonmap svg { width: 100%; height: auto; display: block; border-radius: 8px; cursor: crosshair; touch-action: none; user-select: none; }
 .moon-sky .moonmap .far { fill: #1a1f2b; }
-.moon-sky .moonmap .near { fill: #2a3040; }
+.moon-sky .moonmap .far-shade { fill: #000; opacity: 0.35; pointer-events: none; }
+.moon-sky .moonmap image { pointer-events: none; }
+.moon-sky .map-frame { position: relative; }
+.moon-sky .map-zoom { position: absolute; top: 8px; right: 8px; display: flex; flex-direction: column; gap: 4px; }
+.moon-sky .map-zoom button { width: 28px; height: 28px; padding: 0; border-radius: 6px; background: rgba(11, 15, 26, 0.8); font-size: 15px; line-height: 1; }
+.moon-sky .map-zoom button:disabled { opacity: 0.4; cursor: default; }
 .moon-sky svg .grid { stroke: #ffffff14; stroke-width: 1; fill: none; }
 .moon-sky svg .grid.main { stroke: #ffffff33; }
 .moon-sky svg .axis { fill: var(--muted); font-size: 11px; }
-.moon-sky .moonmap .side { fill: #ffffff55; font-size: 12px; letter-spacing: 0.5px; }
+.moon-sky .moonmap .side { fill: #ffffffaa; font-size: 12px; letter-spacing: 0.5px; paint-order: stroke; stroke: #000a; stroke-width: 3px; }
+.moon-sky .moonmap .axis { paint-order: stroke; stroke: #000a; stroke-width: 3px; }
+.moon-sky .moonmap .grid { stroke: #ffffff26; }
+.moon-sky .moonmap .grid.main { stroke: #ffffff55; }
 .moon-sky .site circle { fill: #c9ccd6; stroke: #0b0f1a; stroke-width: 1.5; cursor: pointer; }
 .moon-sky .site:hover circle { fill: #fff; r: 6; }
 .moon-sky .site.active circle { fill: var(--accent); }
@@ -144,6 +152,18 @@
 .moon-sky .chart .now { stroke: #fff; stroke-width: 1.5; }
 .moon-sky .chart .thr { stroke: var(--warn); stroke-dasharray: 6 4; }
 .moon-sky .chart .both-band { fill: var(--both); opacity: 0.12; }
+/* link strip under the chart: direct line / relay satellite in Earth orbit / no Earth */
+.moon-sky .chart .link-band.direct { fill: var(--both); }
+.moon-sky .chart .link-band.relay { fill: var(--warn); }
+.moon-sky .chart .link-band.none { fill: var(--err); opacity: 0.55; }
+.moon-sky .dot.link { border-radius: 2px; }
+.moon-sky .dot.link.direct { background: var(--both); }
+.moon-sky .dot.link.relay { background: var(--warn); }
+.moon-sky .dot.link.none { background: var(--err); opacity: 0.55; }
+.moon-sky .metric .comm { margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+.moon-sky .metric .comm.relay b { color: var(--warn); }
+.moon-sky .metric .comm.none b { color: var(--err); }
+.moon-sky .metric .comm.direct b { color: var(--both); }
 
 /* windows */
 .moon-sky .windows { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
@@ -160,3 +180,23 @@
 .moon-sky .wtable tr.current { background: #8ab4ff22; }
 
 .moon-sky footer { font-size: 12px; text-align: center; padding: 8px 0 20px; }
+
+/* launch sites table (Launch sites card) */
+.moon-sky .sites-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.moon-sky .sites-table th { padding: 4px 8px 4px 0; border-bottom: 1px solid var(--line); color: var(--muted); font-weight: 400; text-align: left; white-space: nowrap; }
+.moon-sky .sites-table td { padding: 5px 8px 5px 0; border-bottom: 1px solid #ffffff0a; }
+.moon-sky .sites-table tbody tr { cursor: pointer; }
+.moon-sky .sites-table tbody tr:hover { background: #ffffff0a; }
+.moon-sky .muted.small { margin: 8px 0 0; font-size: 12px; }
+
+/* power & comms ranking */
+.moon-sky .table-scroll { overflow-x: auto; }
+.moon-sky .rank-table td, .moon-sky .rank-table th { white-space: nowrap; }
+.moon-sky .rank-table tr.active td { background: #8ab4ff1f; }
+.moon-sky .rank-table tr.active td:first-child { box-shadow: inset 3px 0 var(--accent); padding-left: 6px; }
+.moon-sky .rank-table td.good { color: var(--both); }
+.moon-sky .rank-table td.mid { color: var(--warn); }
+.moon-sky .rank-table td.bad { color: var(--err); }
+.moon-sky .rank-table .tag { margin-left: 6px; padding: 0 6px; border: 1px solid var(--line); border-radius: 99px; color: var(--muted); font-size: 10px; }
+.moon-sky .ranking .top { margin: 0 0 8px; }
+.moon-sky .ranking .err { color: var(--err); }

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useSimStore } from '../../store/simStore';
 import { useMissionStore } from '../mission/missionStore';
 import { PauseIcon, PlayIcon, RestartIcon } from '../../components/icons/Icons';
@@ -12,14 +12,13 @@ import SkyDome3D from './components/SkyDome3D.jsx';
 import Metrics from './components/Metrics.jsx';
 import Windows from './components/Windows.jsx';
 import { fmtUtc } from './format.js';
+import { linkAt, linkSegments } from './link.js';
+import { siteById } from '../launchSites/sites';
 import './moonSky.css';
 
-// Same speeds as the mission clock in the top bar (simulated seconds per real second).
-const SPEEDS = [
-  { value: 43200, label: '12 h/s' },
-  { value: 86400, label: '1 d/s' },
-  { value: 259200, label: '3 d/s' },
-];
+import { CLOCK_SPEEDS as SPEEDS } from '../../components/TopBar/clockSpeeds';
+import { LaunchSitesTable } from '../mission/LaunchSitesTable';
+import PowerCommsRanking from './components/PowerCommsRanking.jsx';
 
 /** ms → 'YYYY-MM-DDTHH:MM' (UTC), rounded down to the full hour – the range-start format. */
 const toStartInput = (ms) => new Date(Math.floor(ms / 3600_000) * 3600_000).toISOString().slice(0, 16);
@@ -30,7 +29,6 @@ const DEFAULTS = {
   mode: 'center', thr: 5, t: 0,
 };
 const STEPS = ['10m', '30m', '1h'];
-const MODES = ['center', 'limb', 'custom'];
 const START_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/;
 
 // Settings live in the page URL – the link can be copied and shared.
@@ -41,12 +39,26 @@ function readParams() {
   const fromUrl = START_RE.test(q.get('start') ?? '');
   // no range in the URL → start the range at the mission clock's current time
   const start = fromUrl ? q.get('start') : toStartInput(useSimStore.getState().simTimeMs);
-  // the landing point is shared with the Moon mission panel (which also starts from the URL)
+  // the landing point is shared with the mission panel (the mission store also starts from the URL)
   const { lat, lon } = useMissionStore.getState().landing;
   return {
     lat, lon, alt: num('alt'), start, fromUrl,
-    days: num('days'), step: pick('step', STEPS), mode: pick('mode', MODES), thr: num('thr'), t: num('t'),
+    days: num('days'), step: pick('step', STEPS), mode: 'center', thr: DEFAULTS.thr, t: num('t'),
   };
+}
+
+/**
+ * The launch site whose ground station talks to the lander: the one highlighted in the mission panel,
+ * else the one of the computed flight. Same object while nothing changes (it keys memos).
+ */
+function useLaunchStation() {
+  const siteId = useSimStore((s) => s.missionSites[s.activeSiteSlot] ?? null);
+  const launch = useMissionStore((s) => s.launch);
+  const launchName = useMissionStore((s) => s.launchName);
+  return useMemo(() => {
+    const site = siteId ? siteById(siteId) : null;
+    return site ? { name: site.name, lat: site.lat, lon: site.lon } : { name: launchName, lat: launch.lat, lon: launch.lon };
+  }, [siteId, launch, launchName]);
 }
 
 /**
@@ -95,13 +107,22 @@ export default function MoonSky({ view = 'results', active = true }) {
     lat: p.lat, lon: p.lon, altKm: p.alt, start: startMs, days: p.days, step: p.step, at, mode,
   });
 
-  // keep the Moon mission's landing point and this form in step, both ways
+  // Link to Earth from the mission's launch site (its ground station), as Earth turns under the Moon
+  const station = useLaunchStation();
+  const segments = useMemo(
+    () => (samples && station ? linkSegments(samples.earth, station, mode) : null),
+    [samples, station, mode],
+  );
+  const link = segments && station ? linkAt(segments, station, at) : null;
+
+  // keep the mission's landing point and this form in step, both ways
   useEffect(() => useMissionStore.getState().setLanding({ lat: p.lat, lon: p.lon }), [p.lat, p.lon]);
   useEffect(() => useMissionStore.subscribe(({ landing: l }) => setP((prev) =>
     Math.abs(prev.lat - l.lat) > 1e-6 || Math.abs(prev.lon - l.lon) > 1e-6 ? { ...prev, lat: l.lat, lon: l.lon } : prev,
   )), []);
 
-  const site = sites.find((s) => Math.abs(s.lat - p.lat) < 1e-4 && Math.abs(s.lon - p.lon) < 1e-4);
+  // the named site at this point (same tolerance as the mission panel's labels, mission/landing.ts)
+  const site = sites.find((s) => Math.abs(s.lat - p.lat) < 0.05 && Math.abs(s.lon - p.lon) < 0.05);
 
   // A shared link (range + t in the URL) sets the mission clock once, on first open.
   // Declared before the follow effect below, so that effect already sees the restored time.
@@ -124,26 +145,18 @@ export default function MoonSky({ view = 'results', active = true }) {
   useEffect(() => {
     if (playing) return;
     const q = new URLSearchParams({
-      lat: p.lat, lon: p.lon, alt: p.alt, start: p.start, days: p.days, step: p.step, mode: p.mode,
-      ...(p.mode === 'custom' ? { thr: p.thr } : {}), t: offset,
+      lat: p.lat, lon: p.lon, alt: p.alt, start: p.start, days: p.days, step: p.step, t: offset,
     });
     window.history.replaceState(null, '', '?' + q + window.location.hash);
   }, [p, offset, playing]);
 
   const seek = (t) => setSimTime(Math.min(Math.max(Math.round(t), startMs), endMs));
 
-  // Apply in the settings: switch the drawer to the results tab (it follows the #hash)
-  const showResults = () => {
-    const { pathname, search } = window.location;
-    window.history.replaceState(null, '', pathname + search + '#moon-sky');
-    window.dispatchEvent(new HashChangeEvent('hashchange'));
-  };
-
   const header = (
     <header>
       <h1>{view === 'settings' ? 'Landing settings' : 'Lunar Sky Calculator'}</h1>
       <p className="sub">
-        {site ? <b>{site.name}</b> : <b>Custom location</b>}
+        {site ? <b>{site.name}</b> : <b>Selected point</b>}
         {' · '}{p.lat.toFixed(4)}°, {p.lon.toFixed(4)}°{' · '}{fmtUtc(at)}
         {loading && <span className="loading"> · Loading data…</span>}
       </p>
@@ -162,7 +175,7 @@ export default function MoonSky({ view = 'results', active = true }) {
             </div>
           )}
           <section className="card">
-            <Controls p={p} onChange={update} onApply={showResults}>
+            <Controls p={p} onChange={update}>
               <MoonMap lat={p.lat} lon={p.lon} sites={sites} siteId={site?.id}
                 onPick={(c) => update(c)} />
               <SiteSelect sites={sites} siteId={site?.id} onChange={update} />
@@ -207,7 +220,18 @@ export default function MoonSky({ view = 'results', active = true }) {
 
         <section className="card">
           <h2>Data</h2>
-          {analysis ? <Metrics a={analysis} /> : <p className="muted">{loading ? 'Loading…' : 'No data'}</p>}
+          {analysis ? <Metrics a={analysis} link={link} /> : <p className="muted">{loading ? 'Loading…' : 'No data'}</p>}
+        </section>
+
+        <section className="card">
+          <h2>Launch sites</h2>
+          <LaunchSitesTable samples={samples} />
+        </section>
+
+        <section className="card">
+          <h2>Power &amp; comms ranking</h2>
+          <PowerCommsRanking p={p} pointName={site ? site.name : 'Selected point'} station={station}
+            onPick={(c) => update(c)} />
         </section>
 
         <section className="card">
@@ -220,15 +244,16 @@ export default function MoonSky({ view = 'results', active = true }) {
             </button>
             <button type="button" onClick={() => { if (playing) togglePlay(); setSimTime(startMs); }}
               title="Back to range start" aria-label="Back to range start"><RestartIcon /></button>
-            <select value={timeScale} onChange={(e) => setTimeScale(+e.target.value)} title="Clock speed">
+            <select value={timeScale} onChange={(e) => setTimeScale(+e.target.value)} title="Clock speed (same as the top bar)">
+              {!SPEEDS.some((sp) => sp.value === timeScale) && <option value={timeScale}>auto (flight)</option>}
               {SPEEDS.map((sp) => <option key={sp.value} value={sp.value}>{sp.label}</option>)}
             </select>
             <input type="range" min={0} max={totalMin} step={10} value={offset}
               onChange={(e) => setSimTime(startMs + +e.target.value * 60_000)} />
-            <span className="time">{fmtUtc(at)}</span>
+            <span className="time" title="Mission clock (same as the top bar)">{fmtUtc(simTimeMs)}</span>
           </div>
           {samples && analysis && (
-            <ElevationChart samples={samples} a={analysis} onSeek={seek} />
+            <ElevationChart samples={samples} a={analysis} onSeek={seek} link={segments} station={station} />
           )}
         </section>
 

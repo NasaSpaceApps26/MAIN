@@ -318,3 +318,130 @@
     align-items: stretch;
   }
 }
+
+/* 3D model of the launch site open on the right: move to the left, clear of it */
+.docked {
+  left: 48px;
+  translate: none;
+  width: min(700px, calc(100% - min(500px, 100% - 92px) - 124px));
+}
+
+.link {
+  padding: 4px 2px;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.link:hover {
+  text-decoration: underline;
+}
+
+.link:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* Fuel policy: two joined buttons */
+.seg {
+  display: flex;
+  justify-self: start;
+}
+
+.segButton {
+  padding: 4px 12px;
+  border: 1px solid var(--line);
+  background: rgba(2, 6, 18, 0.8);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.segButton:first-child {
+  border-radius: 4px 0 0 4px;
+}
+
+.segButton:last-child {
+  border-left: none;
+  border-radius: 0 4px 4px 0;
+}
+
+.segButton:hover:not(:disabled) {
+  background: var(--accent-soft);
+}
+
+.segButton:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.segButton:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+.segOn,
+.segOn:last-child {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+/* Compute flight, its progress and the verdict */
+.flight {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  min-width: 0;
+}
+
+.compute {
+  border-color: #ff9a3c;
+  background: rgba(255, 154, 60, 0.12);
+  color: #ffb36b;
+}
+
+.compute:hover:not(:disabled) {
+  background: rgba(255, 154, 60, 0.25);
+}
+
+.bar {
+  width: 180px;
+  height: 3px;
+  overflow: hidden;
+  background: var(--accent-soft);
+}
+
+.bar i {
+  display: block;
+  width: 30%;
+  height: 100%;
+  background: var(--accent);
+  animation: slide 1.4s ease-in-out infinite;
+}
+
+@keyframes slide {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(340%);
+  }
+}
+
+.bad {
+  color: #ff8a7a;
+}
+
+/* Narrow windows: the 3D model is across the top, so the panel stays full width below it */
+@media (max-width: 1100px) {
+  .docked {
+    left: 50%;
+    translate: -50% 0;
+    width: min(700px, calc(100% - 32px));
+  }
+}

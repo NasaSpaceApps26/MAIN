@@ -10,7 +10,8 @@ import { formatCoord, nearbySites, siteById, type LaunchSiteId } from './sites'
 import { LaunchDirector } from './launch/LaunchDirector'
 import { LaunchLight, LaunchPrewarm, LaunchTimeSync } from './launch/LaunchStage'
 import { SkyClock, SkyLights } from './sky/SkyScene'
-import { LaunchClock, LaunchPanel } from './launch/LaunchPanel'
+import { LaunchClock } from './launch/LaunchPanel'
+import { useAutoLaunch } from './launch/useAutoLaunch'
 import { useLaunchStore } from './launch/launchStore'
 import styles from './LaunchSiteViewer.module.css'
 
@@ -46,7 +47,7 @@ function ResetView({ view }: { view: View }) {
   return null
 }
 
-/** Window with a 3D model of the launch site whose red dot was clicked on Earth. */
+/** Window on the right with a 3D model of the launch site chosen in the mission panel (or on Earth). */
 export function LaunchSiteViewer() {
   const siteId = useSimStore((s) => s.launchSiteId)
   const openLaunchSite = useSimStore((s) => s.openLaunchSite)
@@ -67,6 +68,9 @@ function ViewerWindow({ siteId, onClose }: { siteId: LaunchSiteId; onClose: () =
     resetLaunch()
     return resetLaunch
   }, [activeId, resetLaunch])
+
+  // the computed flight lifts off on its own here (no launch controls over the model)
+  useAutoLaunch(active.pads)
 
   // T+18 s: close the window. A real-time timer from liftoff, because the flight's own clock stops
   // early when the rocket fades into the haze. Scrubbing or resetting the launch cancels it.
@@ -127,7 +131,6 @@ function ViewerWindow({ siteId, onClose }: { siteId: LaunchSiteId; onClose: () =
             <LaunchPrewarm key={`prewarm-${activeId}`} />
           </Canvas>
           <LaunchClock />
-          <LaunchPanel key={activeId} pads={active.pads} />
           <p className={styles.hint}>Drag to rotate · scroll to zoom · right-drag to pan</p>
         </div>
 

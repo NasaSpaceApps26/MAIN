@@ -1,8 +1,11 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useLunarSites } from '../../api/hooks'
+import type { Site } from '../../api/types'
 import { LAUNCH_SITES, siteById, type LaunchSiteId } from '../../features/launchSites/sites'
 import { ROCKETS, type RocketId } from '../../features/mission/flightPlan'
-import { landingLabel } from '../../features/mission/landing'
+import { landingLabel, siteAt } from '../../features/mission/landing'
+import { useMissionStore } from '../../features/mission/missionStore'
+import type { MissionMode } from '../../features/mission/types'
 import { MAX_LANDING_POINTS, missionReady, useSimStore } from '../../store/simStore'
 import { moonHeight, terrainDataset, useMoonTerrain } from '../SolarSystem/EarthMoon/moonTerrain'
 import styles from './MissionPanel.module.css'
@@ -26,9 +29,87 @@ function parseDegrees(text: string, limit: number) {
   return trimmed !== '' && Number.isFinite(value) && Math.abs(value) <= limit ? value : null
 }
 
+/** Fuel policy of the computed flight (the mission simulation's mode). */
+const FUEL_POLICIES: { id: MissionMode; label: string; hint: string }[] = [
+  { id: 'szybki', label: 'Fastest', hint: 'Shortest flight the fuel allows, with reserves' },
+  { id: 'oszczedny', label: 'Least fuel', hint: 'Slower flight (about 4 days), least propellant' },
+]
+
+const pad2 = (n: number) => String(Math.floor(n)).padStart(2, '0')
+const fmtMin = (s: number) => `${Math.floor(s / 60)}:${pad2(s % 60)}`
+
+/** Opens the Landing settings drawer on the left, where the landing site is picked on the Moon map. */
+function openLandingMap() {
+  const { pathname, search } = window.location
+  window.history.replaceState(null, '', pathname + search + '#landing-settings')
+  window.dispatchEvent(new HashChangeEvent('hashchange'))
+}
+
+const sameSpot = (a: { lat: number; lon: number }, latDeg: number, lonDeg: number) =>
+  Math.abs(a.lat - latDeg) < 1e-6 && Math.abs(a.lon - lonDeg) < 1e-6
+
+/**
+ * Keeps the landing point being edited here and the one on the Moon map (Landing settings drawer)
+ * the same, both ways.
+ */
+function useLandingSync(lunarSites: Site[] | undefined) {
+  // the subscription below lives as long as the panel: it reads the latest list through a ref
+  const sitesRef = useRef(lunarSites)
+  useEffect(() => {
+    sitesRef.current = lunarSites
+  }, [lunarSites])
+  const point = useSimStore((s) => s.landingPoints[s.activeLandingSlot] ?? null)
+  // picked here (globe, list, coordinates) or another slot made active: the Moon map shows it
+  useEffect(() => {
+    if (point) useMissionStore.getState().setLanding({ lat: point.latDeg, lon: point.lonDeg })
+  }, [point])
+  // picked on the Moon map: into the active landing slot
+  useEffect(
+    () =>
+      useMissionStore.subscribe((m, prev) => {
+        if (m.landing === prev.landing) return
+        const s = useSimStore.getState()
+        const p = s.landingPoints[s.activeLandingSlot]
+        if (p && sameSpot(m.landing, p.latDeg, p.lonDeg)) return
+        const { lat, lon } = m.landing
+        // a named site picked on the Lunar Sky map keeps its name
+        const siteId = siteAt(lat, lon, sitesRef.current)?.id ?? null
+        s.setLandingPoint({ latDeg: lat, lonDeg: lon, elevationM: moonHeight(lat, lon), datasetId: terrainDataset(), siteId })
+      }),
+    [],
+  )
+}
+
 /** UTC ms ↔ the value of a datetime-local input, read as UTC ('1969-07-16T13:32'). */
 const toUtcInput = (ms: number) => new Date(ms).toISOString().slice(0, 16)
 const fromUtcInput = (value: string) => Date.parse(`${value}:00Z`)
+
+/**
+ * The mission clock (the same one as in the top bar and in Lunar Sky), to the minute. Setting it
+ * stops the clock there; Compute then searches the launch window from this time.
+ */
+function ClockField() {
+  const clockMs = useSimStore((s) => Math.floor(s.simTimeMs / 60_000) * 60_000)
+  return (
+    <div className={styles.coords}>
+      <label className={styles.field} title="Mission clock, same as the top bar: Compute launches from this time">
+        <span>Launch UTC (clock)</span>
+        <input
+          className={`${styles.input} ${styles.time}`}
+          type="datetime-local"
+          value={toUtcInput(clockMs)}
+          onChange={(e) => {
+            const t = fromUtcInput(e.target.value)
+            if (!Number.isFinite(t)) return
+            const s = useSimStore.getState()
+            if (s.isPlaying) s.togglePlay()
+            s.setSimTime(t)
+          }}
+        />
+      </label>
+    </div>
+  )
+}
 
 type CoordFormProps = {
   label: string // what the coordinates are for (read out by screen readers)
@@ -96,20 +177,32 @@ function CoordForm({ label, lat, lon, onSet }: CoordFormProps) {
  *  3. Landing points on the Moon: one or more (＋ adds another to compare). Type coordinates, click a
  *     named lunar site, or switch on "Pick on Moon" and click the Moon's surface (only then does a
  *     click on the Moon pick a point). Each fills the highlighted slot.
- * "Go to launch site" opens the 3D model of the highlighted site; its Launch button stays locked until
- * the mission is complete (see LaunchPanel). "Mission results" opens the analysis (MissionResults).
+ *     "Pick on the Moon map" opens the Landing settings drawer with the Moon map.
+ *  4. Fuel policy: fastest flight or least fuel.
+ * Choosing a launch site opens its 3D model on the right. "Compute" runs the mission simulation
+ * (backend) from the highlighted site to the highlighted landing point; once it is done the rocket
+ * lifts off on its own in that model (see launchSites/launch/useAutoLaunch) while the same flight starts in the solar
+ * system.
+ * "Detail information" opens the analysis (MissionResults).
  */
 export function MissionPanel() {
   const missionSites = useSimStore((s) => s.missionSites)
   const activeSlot = useSimStore((s) => s.activeSiteSlot)
   const rocketId = useSimStore((s) => s.rocketId)
-  const launchTimeMs = useSimStore((s) => s.launchTimeMs)
   const landingPoints = useSimStore((s) => s.landingPoints)
   const activeLanding = useSimStore((s) => s.activeLandingSlot)
   const picking = useSimStore((s) => s.pickingLanding)
   const ready = useSimStore(missionReady)
   const { data: lunarSites } = useLunarSites()
   const terrain = useMoonTerrain(picking) // picking needs the Moon's heights: start loading them
+  const viewerOpen = useSimStore((s) => s.launchSiteId !== null)
+  const fuelPolicy = useMissionStore((s) => s.mode)
+  const flight = useMissionStore((s) => s.status)
+  const elapsedS = useMissionStore((s) => s.elapsedS)
+  const flightError = useMissionStore((s) => s.error)
+  const result = useMissionStore((s) => s.result)
+  const computing = flight === 'queued' || flight === 'running'
+  useLandingSync(lunarSites)
 
   const activeId = missionSites[activeSlot] ?? null
   const activeSite = activeId ? siteById(activeId) : null
@@ -152,20 +245,36 @@ export function MissionPanel() {
   /** Typed landing coordinates: any point on the Moon, into the active landing slot. */
   const setLandingByCoords = (lat: number, lon: number) => {
     const s = useSimStore.getState()
-    s.setLandingPoint({ latDeg: lat, lonDeg: lon, elevationM: moonHeight(lat, lon), datasetId: terrainDataset(), siteId: null })
+    const siteId = siteAt(lat, lon, lunarSites)?.id ?? null // typed a named site's coordinates
+    s.setLandingPoint({ latDeg: lat, lonDeg: lon, elevationM: moonHeight(lat, lon), datasetId: terrainDataset(), siteId })
     s.setPickingLanding(false)
     return null
   }
 
+  /** Flight from the highlighted launch site to the highlighted landing point. */
+  const computeFlight = () => {
+    if (!activeSite || !point) return
+    const sim = useSimStore.getState()
+    sim.setLaunchTime(Math.floor(sim.simTimeMs / 60_000) * 60_000) // launch window from the clock's time
+    const m = useMissionStore.getState()
+    m.setLaunch({ lat: activeSite.lat, lon: activeSite.lon }, activeSite.name)
+    m.setLanding({ lat: point.latDeg, lon: point.lonDeg })
+    useSimStore.getState().openLaunchSite(activeSite.id) // the liftoff is shown there
+    void m.compute()
+  }
+
   const setCount = Number(anySite) + Number(anyLanding)
-  const hint = !anySite
-    ? 'Choose a launch site: click a red dot on Earth, pick one from the list or type its coordinates.'
-    : !anyLanding
-      ? 'Launch stays locked until the landing point on the Moon is set.'
-      : 'All set: open the launch site to fly it, or the results to compare.'
+  const flightNote = computing
+    ? flight === 'queued'
+      ? 'Waiting for a free slot…'
+      : `Simulating the flight… ${fmtMin(elapsedS)} (usually a few minutes)`
+    : flight === 'error'
+      ? flightError
+      : (result?.verdict ?? null)
+  const noteTone = computing ? '' : flight === 'error' || (result && !result.landed) ? styles.bad : result ? styles.ok : ''
 
   return (
-    <section className={styles.panel} aria-label="Mission">
+    <section className={viewerOpen ? `${styles.panel} ${styles.docked}` : styles.panel} aria-label="Mission">
       <header className={styles.header}>
         <h2 className={styles.title}>Mission</h2>
         <span className={ready ? `${styles.status} ${styles.ok}` : styles.status}>
@@ -255,31 +364,7 @@ export function MissionPanel() {
             </option>
           ))}
         </select>
-        <div className={styles.coords}>
-          <label className={styles.field}>
-            <span>Launch UTC</span>
-            <input
-              className={`${styles.input} ${styles.time}`}
-              type="datetime-local"
-              value={toUtcInput(launchTimeMs)}
-              onChange={(e) => {
-                const t = fromUtcInput(e.target.value)
-                if (Number.isFinite(t)) useSimStore.getState().setLaunchTime(t)
-              }}
-            />
-          </label>
-          <button
-            type="button"
-            className={styles.small}
-            title="Launch at the mission clock's time"
-            onClick={() => {
-              const s = useSimStore.getState()
-              s.setLaunchTime(Math.floor(s.simTimeMs / 60_000) * 60_000)
-            }}
-          >
-            Clock
-          </button>
-        </div>
+        <ClockField />
       </div>
 
       {/* 3. Landing points */}
@@ -332,6 +417,14 @@ export function MissionPanel() {
           >
             {picking ? 'Click the Moon… (Esc)' : '◎ Pick'}
           </button>
+          <button
+            type="button"
+            className={styles.link}
+            title="Open the Landing settings with the Moon map"
+            onClick={openLandingMap}
+          >
+            Pick on the Moon map ›
+          </button>
         </div>
         <CoordForm
           key={`landing:${activeLanding}:${point?.latDeg}:${point?.lonDeg}`}
@@ -340,6 +433,31 @@ export function MissionPanel() {
           lon={point?.lonDeg ?? null}
           onSet={setLandingByCoords}
         />
+      </div>
+
+      {/* 4. Fuel policy */}
+      <div className={styles.row}>
+        <div className={styles.rowLabel}>
+          <span className={`${styles.step} ${styles.stepDone}`}>4</span>
+          Fuel policy
+        </div>
+        <div className={styles.seg} role="radiogroup" aria-label="Fuel policy">
+          {FUEL_POLICIES.map((f) => (
+            <button
+              key={f.id}
+              type="button"
+              role="radio"
+              aria-checked={fuelPolicy === f.id}
+              title={f.hint}
+              disabled={computing}
+              className={fuelPolicy === f.id ? `${styles.segButton} ${styles.segOn}` : styles.segButton}
+              onClick={() => useMissionStore.getState().setMode(f.id)}
+            >
+              {f.label}
+            </button>
+          ))}
+        </div>
+        <span className={styles.note}>Launch window: 3 days from launch UTC</span>
       </div>
 
       {picking && terrain.phase !== 'ready' && (
@@ -351,17 +469,34 @@ export function MissionPanel() {
       )}
 
       <footer className={styles.footer}>
-        <p className={styles.note}>{hint}</p>
-        <div className={styles.actions}>
+        <div className={styles.flight}>
           <button
             type="button"
-            className={styles.go}
-            disabled={!activeSite}
-            title={activeSite ? `Open ${activeSite.name}` : 'Choose a launch site first'}
-            onClick={() => activeSite && useSimStore.getState().openLaunchSite(activeSite.id)}
+            className={`${styles.go} ${styles.compute}`}
+            disabled={!activeSite || !point || computing}
+            title={
+              !activeSite
+                ? 'Choose a launch site first'
+                : !point
+                  ? 'Set the landing point on the Moon first'
+                  : `Compute the trajectory ${activeSite.name} → ${landingLabel(point, activeLanding, lunarSites)}; liftoff follows on its own`
+            }
+            onClick={computeFlight}
           >
-            Launch site ▸
+            {computing ? 'Computing…' : result ? 'Recompute' : 'Compute'}
           </button>
+          {computing && (
+            <div className={styles.bar} aria-hidden>
+              <i />
+            </div>
+          )}
+          {flightNote && (
+            <p className={`${styles.note} ${noteTone}`} role={flight === 'error' ? 'alert' : undefined}>
+              {flightNote}
+            </p>
+          )}
+        </div>
+        <div className={styles.actions}>
           <button
             type="button"
             className={`${styles.go} ${styles.results}`}
@@ -369,7 +504,7 @@ export function MissionPanel() {
             title={ready ? 'Arrival, landing area, power and comms' : 'Set a launch site and a landing point first'}
             onClick={() => useSimStore.getState().setResultsOpen(true)}
           >
-            Results ▸
+            Detail information ▸
           </button>
         </div>
       </footer>

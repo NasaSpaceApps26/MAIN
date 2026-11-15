@@ -1,6 +1,9 @@
 import { useMemo, useRef } from 'react';
+import { LINK_LABEL } from '../link.js';
 
-const W = 1000, H = 280, PL = 44, PR = 14, PT = 14, PB = 30;
+// PB leaves room under the plot for the link strip (STRIP_Y…+STRIP_H) and the dates
+const W = 1000, H = 300, PL = 44, PR = 14, PT = 14, PB = 50;
+const STRIP_Y = H - PB + 6, STRIP_H = 12;
 const DAY = 86400_000;
 
 function linePath(samples, x, y) {
@@ -13,7 +16,12 @@ function linePath(samples, x, y) {
   return d;
 }
 
-export default function ElevationChart({ samples, a, onSeek }) {
+/**
+ * Sun and Earth elevation at the landing site over the range. Under it, the link strip: when the
+ * launch site on Earth has a straight line to the landing site, and when Earth's rotation has turned
+ * it away from the Moon so a relay satellite in Earth orbit is needed (`link` = linkSegments).
+ */
+export default function ElevationChart({ samples, a, onSeek, link = null, station = null }) {
   const ref = useRef(null);
 
   const geo = useMemo(() => {
@@ -65,7 +73,7 @@ export default function ElevationChart({ samples, a, onSeek }) {
         {geo.xTicks.map((t) => (
           <g key={t}>
             <line x1={x(t)} x2={x(t)} y1={PT} y2={H - PB} className="grid" />
-            <text x={x(t)} y={H - 10} textAnchor="middle" className="axis">
+            <text x={x(t)} y={H - 6} textAnchor="middle" className="axis">
               {new Date(t).toISOString().slice(5, 10)}
             </text>
           </g>
@@ -75,7 +83,19 @@ export default function ElevationChart({ samples, a, onSeek }) {
         )}
         <path d={geo.sun} className="ln sun" />
         <path d={geo.earth} className="ln earth" />
-        <line x1={x(a.at)} x2={x(a.at)} y1={PT} y2={H - PB} className="now" />
+        {link && (
+          <g>
+            <text x={PL - 6} y={STRIP_Y + STRIP_H - 2} textAnchor="end" className="axis">link</text>
+            {link.map((seg, i) => (
+              <rect key={i} x={x(seg.start)} width={Math.max(1, x(seg.end) - x(seg.start))}
+                y={STRIP_Y} height={STRIP_H} className={`link-band ${seg.state}`}>
+                <title>{`${LINK_LABEL[seg.state]}
+${new Date(seg.start).toISOString().slice(5, 16).replace('T', ' ')} → ${new Date(seg.end).toISOString().slice(5, 16).replace('T', ' ')} UTC`}</title>
+              </rect>
+            ))}
+          </g>
+        )}
+        <line x1={x(a.at)} x2={x(a.at)} y1={PT} y2={link ? STRIP_Y + STRIP_H : H - PB} className="now" />
         <circle cx={x(a.at)} cy={y(a.sun.el)} r={5} className="pt sun" />
         <circle cx={x(a.at)} cy={y(a.earth.el)} r={5} className="pt earth" />
       </svg>
@@ -84,6 +104,13 @@ export default function ElevationChart({ samples, a, onSeek }) {
         <span><i className="dot earth" /> Earth</span>
         <span><i className="dot both" /> both above horizon</span>
         {thr !== 0 && <span className="muted">--- threshold {thr.toFixed(2)}°</span>}
+        {link && (
+          <>
+            <span><i className="dot link direct" /> direct line to {station?.name ?? 'the launch site'}</span>
+            <span><i className="dot link relay" /> {LINK_LABEL.relay} ({station?.name ?? 'launch site'} on the far side of Earth)</span>
+            <span><i className="dot link none" /> {LINK_LABEL.none}</span>
+          </>
+        )}
         <span className="muted">click or drag on the chart</span>
       </div>
     </div>

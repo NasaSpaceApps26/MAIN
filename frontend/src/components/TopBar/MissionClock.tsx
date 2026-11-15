@@ -1,14 +1,7 @@
 import { useSimStore } from '../../store/simStore'
 import { PauseIcon, PlayIcon } from '../icons/Icons'
+import { CLOCK_SPEEDS as SPEEDS } from './clockSpeeds'
 import styles from './MissionClock.module.css'
-
-// Simulated seconds per real second
-const SPEEDS = [
-  { value: 3_600, label: '1 h/s' },
-  { value: 43_200, label: '12 h/s' },
-  { value: 86_400, label: '1 d/s' },
-  { value: 259_200, label: '3 d/s' },
-]
 
 function formatUtc(ms: number) {
   const iso = new Date(ms).toISOString()
@@ -50,6 +43,11 @@ export function MissionClock() {
             {s.label}
           </button>
         ))}
+        {!SPEEDS.some((s) => s.value === timeScale) && (
+          <span className={`${styles.speed} ${styles.active}`} title="The speed follows the flight phase">
+            auto
+          </span>
+        )}
       </div>
     </div>
   )

@@ -1,15 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useLunarSites } from '../../api/hooks'
 import { moonHeight, terrainDataset, useMoonTerrain } from '../../components/SolarSystem/EarthMoon/moonTerrain'
 import { useSimStore, type LandingPoint } from '../../store/simStore'
 import { siteById, type LaunchSiteId } from '../launchSites/sites'
 import { analyzeSky, formatDuration } from '../moonSky/analysis.js'
-import ElevationChart from '../moonSky/components/ElevationChart.jsx'
-import Windows from '../moonSky/components/Windows.jsx'
 import { fmtUtc } from '../moonSky/format.js'
 import { useMoonSky } from '../moonSky/useMoonSky.js'
 import '../moonSky/moonSky.css'
-import { flightPlan, rocketById, siteFactors } from './flightPlan'
+import { flightPlan, rocketById } from './flightPlan'
 import { landingLabel } from './landing'
 import { ReliefMap } from './ReliefMap'
 import { compass, slopeAround, slopeAt } from './terrainMath'
@@ -46,6 +44,37 @@ type MoonSkyResult = {
 
 const SKY_DAYS = 30 // about one lunar day (29.5 Earth days) from just before touchdown
 const HOUR = 3_600_000
+const CLOCK_STEP_MS = 10 * 60_000 // the mission-clock numbers update every 10 simulated minutes
+
+/** 'MM-DD HH:MM' (UTC): short enough for the narrow side column. */
+const fmtShort = (t: number) => new Date(t).toISOString().slice(5, 16).replace('T', ' ')
+
+/** Moves the mission clock (the UTC date in the top bar) and pauses it there. */
+function setClock(t: number) {
+  const s = useSimStore.getState()
+  if (s.isPlaying) s.togglePlay()
+  s.setSimTime(t)
+}
+
+/** The window the moment `at` is in, else the next one. */
+const windowAround = (windows: SkyWindow[], at: number) =>
+  windows.find((w) => w.start <= at && at <= w.end) ?? windows.find((w) => w.start > at) ?? null
+
+type ClockRow = { kind: 'sun' | 'earth' | 'both'; name: string; up: boolean; now: string; w: SkyWindow | null }
+
+/** Sun, Earth and both together at the mission clock, with the window it is in (or the next one). */
+function clockRows(a: SkyAnalysis): ClockRow[] {
+  const rows: ClockRow[] = []
+  const body = (kind: 'sun' | 'earth', name: string, b: BodySky | null) => {
+    if (b) rows.push({ kind, name, up: b.isUp, now: `${b.isUp ? '▲' : '▼'} ${b.el.toFixed(1)}°`, w: windowAround(b.windows, a.at) })
+  }
+  body('sun', 'Sun', a.sun)
+  body('earth', 'Earth', a.earth)
+  if (a.sun && a.earth) {
+    rows.push({ kind: 'both', name: 'Both', up: a.both.isUp, now: a.both.isUp ? '✓ yes' : '✗ no', w: windowAround(a.both.windows, a.at) })
+  }
+  return rows
+}
 
 /** Sun and Earth over a landing point, fetched from moon-sky for the range around touchdown. */
 function useLandingSky(point: LandingPoint | null, skyStart: number, touchdown: number) {
@@ -172,13 +201,13 @@ function LandingRow({ point, label, active, skyStart, touchdown, terrainOk, onSe
   )
 }
 
-/** Mission results window: opened from the mission panel ("Results ▸"). */
+/** Mission results window: opened from the mission panel ("Detail information ▸"). */
 export function MissionResults() {
   const open = useSimStore((s) => s.resultsOpen)
   const launchTimeMs = useSimStore((s) => s.launchTimeMs)
   const rocketId = useSimStore((s) => s.rocketId)
   if (!open) return null
-  // keyed: a new launch time or rocket starts the chart cursor at the new touchdown
+  // keyed: a new launch time or rocket starts over with the new touchdown
   return <ResultsWindow key={`${launchTimeMs}:${rocketId}`} onClose={() => useSimStore.getState().setResultsOpen(false)} />
 }
 
@@ -204,7 +233,7 @@ function ResultsWindow({ onClose }: { onClose: () => void }) {
 
   const rocket = rocketById(rocketId)
   const sites = missionSites.filter((id): id is LaunchSiteId => id !== null).map(siteById)
-  const plans = sites.map((site) => ({ site, plan: flightPlan(rocket, site, launchTimeMs), factors: siteFactors(site) }))
+  const plans = sites.map((site) => ({ site, plan: flightPlan(rocket, site, launchTimeMs) }))
   const firstArrival = plans.length ? Math.min(...plans.map((p) => p.plan.arrivalMs)) : launchTimeMs
   const lastArrival = plans.length ? Math.max(...plans.map((p) => p.plan.arrivalMs)) : launchTimeMs
   // one fetch covers every site's touchdown: from a day before the first one, for about a lunar day
@@ -212,11 +241,12 @@ function ResultsWindow({ onClose }: { onClose: () => void }) {
 
   const sky = useLandingSky(point, skyStart, firstArrival)
 
-  // the chart and window tables have their own cursor, starting at touchdown
-  const [cursor, setCursor] = useState(firstArrival)
-  const chartAnalysis = useMemo(
-    () => (sky.samples ? (analyzeSky(sky.samples, cursor, { mode: 'center' }) as SkyAnalysis) : null),
-    [sky.samples, cursor],
+  // Sun and Earth at the mission clock (the UTC date in the top bar), within the fetched lunar day
+  const clockMs = useSimStore((s) => Math.floor(s.simTimeMs / CLOCK_STEP_MS) * CLOCK_STEP_MS)
+  const clockInRange = clockMs >= skyStart && clockMs <= skyStart + SKY_DAYS * 24 * HOUR
+  const clockSky = useMemo(
+    () => (sky.samples && clockInRange ? (analyzeSky(sky.samples, clockMs, { mode: 'center' }) as SkyAnalysis) : null),
+    [sky.samples, clockMs, clockInRange],
   )
 
   // ground at the landing point (the heights load with the map)
@@ -364,43 +394,10 @@ function ResultsWindow({ onClose }: { onClose: () => void }) {
             </button>
           </section>
 
-          {/* Launch sites side by side */}
+          {/* Power and comms: at touchdown, and at the mission clock over the next lunar day */}
           <section className={styles.card}>
-            <h3 className={styles.cardTitle}>Launch sites</h3>
-            <table className={styles.table}>
-              <thead>
-                <tr>
-                  <th>Site</th>
-                  <th title="Free speed from Earth's spin for a due-east launch">Spin boost</th>
-                  <th title="Lowest orbit inclination without a plane change">Min. incl.</th>
-                  <th>Touchdown</th>
-                  <th>Sun</th>
-                </tr>
-              </thead>
-              <tbody>
-                {plans.map(({ site, plan, factors }) => {
-                  const a = sky.samples ? (analyzeSky(sky.samples, plan.arrivalMs, { mode: 'center' }) as SkyAnalysis) : null
-                  return (
-                    <tr key={site.id}>
-                      <td>{site.name}</td>
-                      <td>{Math.round(factors.rotationBoostMs)} m/s</td>
-                      <td>{factors.minInclinationDeg.toFixed(1)}°</td>
-                      <td>{fmtUtc(plan.arrivalMs)}</td>
-                      <td>{a?.sun ? (a.sun.isUp ? `☀ ${a.sun.el.toFixed(0)}°` : '☾ night') : '—'}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-            <p className={styles.note}>
-              Closer to the equator = more free speed and lower orbits within reach. Vandenberg launches south
-              (polar orbits), so its spin boost does not help there. Sun = at {label(focusSlot)}.
-            </p>
-          </section>
-
-          {/* Power and comms at touchdown */}
-          <section className={styles.card}>
-            <h3 className={styles.cardTitle}>At touchdown: power &amp; comms</h3>
+            <h3 className={styles.cardTitle}>Power &amp; comms</h3>
+            <h4 className={styles.subTitle}>At touchdown · {fmtUtc(firstArrival)}</h4>
             {sky.error && (
               <p className={styles.error}>
                 {sky.error}{' '}
@@ -417,33 +414,49 @@ function ResultsWindow({ onClose }: { onClose: () => void }) {
                 ))}
               </ul>
             )}
+
+            <h4 className={styles.subTitle}>At the mission clock · {fmtUtc(clockMs)}</h4>
+            {!clockInRange ? (
+              <p className={styles.muted}>The clock is outside the {SKY_DAYS} days after touchdown.</p>
+            ) : clockSky ? (
+              <table className={`${styles.table} ${styles.clickable}`}>
+                <thead>
+                  <tr>
+                    <th />
+                    <th>Now</th>
+                    <th title="The window the clock is in, else the next one">Above horizon</th>
+                    <th>Length</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {clockRows(clockSky).map((r) => (
+                    <tr
+                      key={r.kind}
+                      className={r.up ? styles.activeRow : undefined}
+                      title={r.w ? 'Move the mission clock to the start of this window' : undefined}
+                      onClick={() => r.w && setClock(r.w.start)}
+                    >
+                      <td className={styles[r.kind]}>{r.name}</td>
+                      <td>{r.now}</td>
+                      <td>
+                        {r.w
+                          ? `${r.w.startKnown ? fmtShort(r.w.start) : 'before'} → ${r.w.endKnown ? fmtShort(r.w.end) : 'after'}`
+                          : 'none in range'}
+                      </td>
+                      <td>{r.w ? (r.w.startKnown && r.w.endKnown ? '' : '≥ ') + formatDuration(r.w.durationMin) : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            ) : (
+              <p className={styles.muted}>{sky.loading ? 'Asking JPL Horizons…' : 'No data'}</p>
+            )}
+            <button type="button" className={styles.button} onClick={() => setClock(firstArrival)}>
+              Clock to touchdown
+            </button>
           </section>
         </div>
 
-        {/* Sun and Earth over the lunar day: the moon-sky chart and tables */}
-        <section className={`${styles.card} ${styles.wide}`}>
-          <h3 className={styles.cardTitle}>Sun and Earth over the next lunar day · {label(focusSlot)}</h3>
-          <p className={styles.note}>
-            A lunar day lasts 29.5 Earth days: about two weeks of sunlight, then two weeks of night. Solar-powered
-            landers aim to touch down soon after local sunrise to get the whole day. From the near side the Earth
-            hangs almost still in the sky (a steady radio link); from the far side it never rises. Click the chart
-            or a window to move the cursor.
-          </p>
-          {sky.samples && chartAnalysis ? (
-            <div className="moon-sky">
-              <div className="chart-wrap">
-                <ElevationChart samples={sky.samples} a={chartAnalysis} onSeek={setCursor} />
-              </div>
-              <p className={styles.cursor}>
-                Cursor {fmtUtc(cursor)} · Sun {chartAnalysis.sun?.el.toFixed(1)}° · Earth {chartAnalysis.earth?.el.toFixed(1)}°
-                <button type="button" className={styles.button} onClick={() => setCursor(firstArrival)}>Back to touchdown</button>
-              </p>
-              <Windows a={chartAnalysis} onSeek={setCursor} />
-            </div>
-          ) : (
-            <p className={styles.muted}>{sky.loading ? 'Loading…' : 'No data'}</p>
-          )}
-        </section>
       </div>
     </section>
   )

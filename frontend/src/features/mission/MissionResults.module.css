@@ -64,7 +64,7 @@
   color: var(--text-dim);
 }
 
-/* all landing points on top ; map | flight, sites, power ; the sky chart across the bottom */
+/* all landing points on top ; map | flight, sites, power */
 .body {
   flex: 1;
   min-height: 0;
@@ -73,8 +73,7 @@
   grid-template-columns: minmax(0, 1.1fr) minmax(0, 1fr);
   grid-template-areas:
     'compare compare'
-    'area side'
-    'wide wide';
+    'area side';
   align-items: start;
   gap: 12px;
   padding: 12px;
@@ -95,10 +94,6 @@
   flex-direction: column;
   gap: 12px;
   min-width: 0;
-}
-
-.wide {
-  grid-area: wide;
 }
 
 .card {
@@ -255,18 +250,29 @@
   border-left-color: #ff8a7a;
 }
 
-.cursor {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 12px;
-  margin: 4px 0 10px;
+.subTitle {
+  margin: 10px 0 6px;
   color: var(--text-dim);
+  font-size: 11px;
+  font-weight: 400;
   font-variant-numeric: tabular-nums;
 }
 
-.cursor .button {
-  margin: 0;
+.subTitle:first-of-type {
+  margin-top: 0;
+}
+
+/* names in the mission-clock table */
+td.sun {
+  color: #ffd23f;
+}
+
+td.earth {
+  color: #5cc8ff;
+}
+
+td.both {
+  color: #7dffa8;
 }
 
 /* narrow windows: one column */
@@ -276,7 +282,6 @@
     grid-template-areas:
       'compare'
       'area'
-      'side'
-      'wide';
+      'side';
   }
 }

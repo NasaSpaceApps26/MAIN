@@ -57,3 +57,53 @@ export function useLandingSites() {
   }, []);
   return sites;
 }
+
+// Samples already fetched, by point + range: the ranking table asks for several landing sites and
+// must not send Horizons the same request again on every re-render.
+const skyCache = new Map();
+
+/**
+ * Sun and Earth samples for several landing sites over the same range (the ranking table).
+ * points = [{ key, lat, lon }]. Fetched one after another (gentle on JPL Horizons), each once.
+ * Returns { byKey: { [key]: samples }, pending: how many are still missing, failed: how many could
+ * not be fetched in the last attempt }.
+ */
+export function useSkyForPoints(points, { start, days = 30, step = '10m' }) {
+  const [, setTick] = useState(0);
+  const [failed, setFailed] = useState(0);
+  const startIso = Number.isFinite(start) ? new Date(start).toISOString() : null;
+  const keyOf = (p) => `${p.lat},${p.lon},${startIso},${days},${step}`;
+  const wanted = points.map((p) => `${p.key}=${keyOf(p)}`).join(';');
+
+  useEffect(() => {
+    if (!startIso) return;
+    const ctrl = new AbortController();
+    const missing = points.filter((p) => !skyCache.has(keyOf(p)));
+    if (!missing.length) return;
+    const timer = setTimeout(async () => {
+      let errors = 0;
+      for (const p of missing) {
+        const qs = new URLSearchParams({ lat: p.lat, lon: p.lon, alt: 0, start: startIso, days, step });
+        try {
+          const r = await fetch(`${API}/api/sky?${qs}`, { signal: ctrl.signal });
+          if (!r.ok) throw new Error(`HTTP ${r.status}`);
+          const j = await r.json();
+          skyCache.set(keyOf(p), j.samples);
+          setTick((n) => n + 1);
+        } catch (e) {
+          if (e.name === 'AbortError') return;
+          errors++;
+        }
+      }
+      setFailed(errors);
+    }, DEBOUNCE_MS);
+    return () => { clearTimeout(timer); ctrl.abort(); };
+  }, [wanted]); // `wanted` stands for points + range
+
+  const byKey = {};
+  for (const p of points) {
+    const s = skyCache.get(keyOf(p));
+    if (s) byKey[p.key] = s;
+  }
+  return { byKey, pending: points.length - Object.keys(byKey).length, failed };
+}

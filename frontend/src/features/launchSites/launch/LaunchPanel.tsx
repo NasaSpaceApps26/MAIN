@@ -1,6 +1,3 @@
-import { useState } from 'react'
-import { missionReady, useSimStore } from '../../../store/simStore'
-import type { LaunchPad } from '../sites'
 import { useLaunchStore } from './launchStore'
 import styles from './LaunchPanel.module.css'
 
@@ -10,82 +7,6 @@ const pad2 = (n: number) => String(n).padStart(2, '0')
 function formatClock(clock: number) {
   const a = Math.abs(clock)
   return `T${clock < 0 ? '−' : '+'}${pad2(Math.floor(a / 60))}:${pad2(a % 60)}`
-}
-
-/** Launch controls over the 3D model: choose a pad, launch, follow the rocket, reset. */
-export function LaunchPanel({ pads }: { pads: readonly LaunchPad[] }) {
-  const [selected, setSelected] = useState(pads[0]?.id)
-  const activePad = useLaunchStore((s) => s.padId)
-  const phase = useLaunchStore((s) => s.phase)
-  const follow = useLaunchStore((s) => s.follow)
-  const launch = useLaunchStore((s) => s.launch)
-  const reset = useLaunchStore((s) => s.reset)
-  const setFollow = useLaunchStore((s) => s.setFollow)
-  // locked until the mission panel has a launch site and a landing point on the Moon
-  const ready = useSimStore(missionReady)
-  const hasSite = useSimStore((s) => s.missionSites.some((id) => id !== null))
-  if (pads.length === 0) return null
-
-  const busy = activePad !== null
-  const current = activePad ?? selected
-
-  return (
-    <div className={styles.panel}>
-      <div className={styles.heading}>Launch</div>
-      {pads.length > 1 && (
-        <div className={styles.pads} role="radiogroup" aria-label="Launch pad">
-          {pads.map((p) => (
-            <button
-              key={p.id}
-              type="button"
-              role="radio"
-              aria-checked={p.id === current}
-              className={p.id === current ? `${styles.pad} ${styles.padActive}` : styles.pad}
-              disabled={busy && p.id !== current}
-              onClick={() => setSelected(p.id)}
-              title={p.rocket}
-            >
-              <span className={styles.padName}>{p.name}</span>
-              <span className={styles.padRocket}>{p.rocket}</span>
-            </button>
-          ))}
-        </div>
-      )}
-      {pads.length === 1 && <p className={styles.single}>{pads[0].rocket}</p>}
-
-      {phase === 'idle' ? (
-        <button type="button" className={styles.launch} onClick={() => current && launch(current)}>
-          Launch
-        </button>
-        <>
-          <button
-            type="button"
-            className={styles.launch}
-            disabled={!ready}
-            onClick={() => ready && current && launch(current)}
-          >
-            <span aria-hidden>{ready ? '▲' : '🔒'}</span> Launch
-          </button>
-          {!ready && (
-            <p className={styles.locked}>
-              {hasSite
-                ? 'Set the landing point on the Moon in the mission panel first.'
-                : 'Choose a launch site and a landing point in the mission panel first.'}
-            </p>
-          )}
-        </>
-      ) : (
-        <button type="button" className={styles.reset} onClick={reset}>
-          {phase === 'countdown' ? 'Scrub launch' : phase === 'done' ? 'Next rocket' : 'Reset'}
-        </button>
-      )}
-
-      <label className={styles.follow}>
-        <input type="checkbox" checked={follow} onChange={(e) => setFollow(e.target.checked)} />
-        Tracking camera
-      </label>
-    </div>
-  )
 }
 
 /** Big countdown / mission clock and the latest flight event, top centre of the model. */

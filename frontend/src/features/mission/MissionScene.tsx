@@ -5,13 +5,15 @@ import { BufferAttribute, BufferGeometry, Group, Vector3 } from 'three'
 import type { StateSample } from '../../api/types'
 import { positionAt } from '../../components/SolarSystem/orbitMath'
 import { useSimStore } from '../../store/simStore'
-import { type FlightPath, countUpTo, flightPathOf, phaseSpeed } from './flightPath'
+import { type FlightPath, countUpTo, drawScaleFor, flightPathOf, phaseSpeed, warpFromMoon } from './flightPath'
 import { rocketTracker, useMissionStore } from './missionStore'
 
 const OBLIQUITY = (23.439291111 * Math.PI) / 180
 /** Earth's north pole in scene axes (ecliptic frame, y = ecliptic north). */
 const EARTH_POLE = new Vector3(0, Math.cos(OBLIQUITY), -Math.sin(OBLIQUITY))
 const EARTH_SPIN = 7.2921159e-5 // rad/s
+/** Clock speed after touchdown: 1 h/s, the slowest speed in the top bar. */
+const LANDED_TIME_SCALE = 3_600
 
 const labelStyle = {
   transform: 'translate(10px, -50%)',
@@ -51,8 +53,12 @@ function PathLines({ path, earth, moon }: { path: FlightPath } & Required<Props>
   const rocket = useRef<Group>(null)
   const site = useRef<Group>(null)
   const label = useRef<HTMLDivElement>(null)
-  const e = useLine(path.earthLine.positions, path.earthLine.colors)
-  const m = useLine(path.moonLine.positions, path.moonLine.colors)
+  // the flight stretched to the planet size picked in the top bar (see DrawScale)
+  const planetSize = useSimStore((s) => s.planetSize)
+  const scale = useMemo(() => drawScaleFor(planetSize), [planetSize])
+  const drawn = useMemo(() => path.drawnLines(scale), [path, scale])
+  const e = useLine(drawn.earth, path.earthLine.colors)
+  const m = useLine(drawn.moon, path.moonLine.colors)
   const v = useMemo(() => ({ earth: new Vector3(), moon: new Vector3(), tmp: new Vector3() }), [])
 
   useEffect(
@@ -68,6 +74,7 @@ function PathLines({ path, earth, moon }: { path: FlightPath } & Required<Props>
     const tS = (sim.simTimeMs - path.launchMs) / 1000
     positionAt(earth, sim.simTimeMs, v.earth)
     positionAt(moon, sim.simTimeMs, v.moon)
+    v.moon.sub(v.earth).multiplyScalar(scale.orbit).add(v.earth) // where the Moon is drawn
 
     // the flight up to the Moon, geocentric: moves with Earth
     earthGroup.current?.position.copy(v.earth)
@@ -75,7 +82,8 @@ function PathLines({ path, earth, moon }: { path: FlightPath } & Required<Props>
 
     // lunar orbit and landing: before arrival drawn where the Moon will be, then it rides on the Moon
     if (moonGroup.current) {
-      if (tS < path.arrivalS) moonGroup.current.position.copy(v.earth).add(path.moonGeo(path.arrivalS, v.tmp))
+      if (tS < path.arrivalS)
+        moonGroup.current.position.copy(v.earth).add(path.moonGeo(path.arrivalS, v.tmp).multiplyScalar(scale.orbit))
       else moonGroup.current.position.copy(v.moon)
     }
     m.flown.setDrawRange(0, countUpTo(path.moonLine.times, tS))
@@ -83,26 +91,27 @@ function PathLines({ path, earth, moon }: { path: FlightPath } & Required<Props>
     // the spacecraft; before liftoff it stands on the pad and turns with Earth
     if (rocket.current) {
       if (tS < 0) {
-        path.spacecraft(0, v.earth, v.moon, v.tmp).sub(v.earth)
+        path.spacecraft(0, v.earth, v.moon, v.tmp, scale).sub(v.earth)
         v.tmp.applyAxisAngle(EARTH_POLE, EARTH_SPIN * tS)
         rocket.current.position.copy(v.earth).add(v.tmp)
-      } else path.spacecraft(tS, v.earth, v.moon, rocket.current.position)
+      } else path.spacecraft(tS, v.earth, v.moon, rocket.current.position, scale)
       rocketTracker.active = true
       rocketTracker.position.copy(rocket.current.position)
     }
-    site.current?.position.copy(v.moon).add(path.site(tS, v.tmp))
+    site.current?.position.copy(v.moon).add(warpFromMoon(path.site(tS, v.tmp), scale))
 
     const st = path.state(Math.max(tS, 0))
     rocketTracker.phase = tS < 0 ? 'On the launch pad' : st.phase
     rocketTracker.tS = tS
     if (label.current) label.current.textContent = rocketTracker.phase
 
-    // clock speed follows the phase while the flight plays; pause when it is over
+    // clock speed follows the phase while the flight plays; once the rocket has landed the clock
+    // keeps running at the top bar's normal speed (1 h/s) and the speed is the user's again
     const { autoSpeed } = useMissionStore.getState()
     if (autoSpeed && sim.isPlaying && tS > -600) {
-      if (tS > path.endS) {
-        sim.togglePlay()
-        sim.setTimeScale(60)
+      if (tS > path.endS || st.phase.startsWith('On the surface')) {
+        sim.setTimeScale(LANDED_TIME_SCALE)
+        useMissionStore.getState().setAutoSpeed(false)
       } else {
         const want = tS < 0 ? 10 : phaseSpeed(st.phase, st.moonDistKm)
         if (sim.timeScale !== want) sim.setTimeScale(want)

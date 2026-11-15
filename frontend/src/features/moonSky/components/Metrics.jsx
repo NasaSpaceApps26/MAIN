@@ -28,7 +28,42 @@ function BodyCard({ name, cls, b }) {
   );
 }
 
-export default function Metrics({ a }) {
+const inMin = (t, at) => formatDuration(Math.round((t - at) / 60_000));
+
+/**
+ * Link to Earth from the launch site (linkAt). Earth turns once a day: for about half of it the launch
+ * site faces away from the Moon and there is no straight line, so a relay satellite in Earth orbit
+ * has to pass the signal on.
+ */
+function LinkLine({ link, at }) {
+  const name = link.station.name;
+  const moon = `Moon ${Math.abs(link.moonEl).toFixed(1)}° ${link.moonEl >= 0 ? 'above' : 'below'} its horizon`;
+  if (link.state === 'direct') {
+    return (
+      <p className="comm direct">
+        <b>Direct line to {name}</b> ({moon}).
+        <br />{link.endsAt ? <>Earth's rotation turns {name} away in <b>{inMin(link.endsAt, at)}</b>: then a relay satellite in Earth orbit is needed.</> : 'Lasts past the end of the range.'}
+      </p>
+    );
+  }
+  if (link.state === 'relay') {
+    return (
+      <p className="comm relay">
+        <b>Relay satellite in Earth orbit needed.</b> {name} is on the other side of Earth ({moon}): there is no
+        straight line from {name} to the landing site.
+        <br />Direct line again: <b>{link.nextDirect ? `in ${inMin(link.nextDirect, at)}` : 'not within the range'}</b>.
+      </p>
+    );
+  }
+  return (
+    <p className="comm none">
+      <b>No line to Earth:</b> Earth is below the landing site's horizon, so neither {name} nor a satellite in Earth
+      orbit can be reached directly – a relay satellite in lunar orbit is needed.
+    </p>
+  );
+}
+
+export default function Metrics({ a, link = null }) {
   const nextBoth = a.both.windows.find((w) => w.start > a.at);
   return (
     <div className="metrics">
@@ -43,6 +78,7 @@ export default function Metrics({ a }) {
           <p>Missing {!a.sun.isUp && !a.earth.isUp ? 'Sun and Earth' : !a.sun.isUp ? 'Sun (no power)' : 'Earth (no communications)'}.
             <br />Next shared window: <b>{nextBoth ? `in ${formatDuration(Math.round((nextBoth.start - a.at) / 60_000))}` : 'none in range'}</b></p>
         )}
+        {link && <LinkLine link={link} at={a.at} />}
       </div>
     </div>
   );

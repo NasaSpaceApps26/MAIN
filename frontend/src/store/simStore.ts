@@ -83,6 +83,9 @@ function withoutSlot<T>(slots: (T | null)[], active: number, slot: number) {
   return { slots: rest, active: Math.min(active > slot ? active - 1 : active, rest.length - 1) }
 }
 
+/** UTC ms rounded down to the whole minute. */
+const toMinute = (t: number) => Math.floor(t / 60_000) * 60_000
+
 export const useSimStore = create<SimState>()((set, get) => ({
   simTimeMs: APOLLO_11_LAUNCH,
   isPlaying: false,
@@ -104,12 +107,15 @@ export const useSimStore = create<SimState>()((set, get) => ({
   cameraRequest: null,
   requestCameraView: (view) =>
     set((s) => ({ cameraRequest: { view, n: (s.cameraRequest?.n ?? 0) + 1 } })),
-  setSimTime: (t) => set({ simTimeMs: t }),
+  // One clock everywhere (top bar, Lunar Sky, mission panel): while it stands still, the planned
+  // launch time is the clock's time (whole minutes), so Compute launches from where the clock is
+  setSimTime: (t) => set((s) => (s.isPlaying ? { simTimeMs: t } : { simTimeMs: t, launchTimeMs: toMinute(t) })),
   advance: (dt) => {
     const { isPlaying, simTimeMs, timeScale } = get()
     if (isPlaying) set({ simTimeMs: simTimeMs + dt * 1000 * timeScale })
   },
-  togglePlay: () => set((s) => ({ isPlaying: !s.isPlaying })),
+  togglePlay: () =>
+    set((s) => (s.isPlaying ? { isPlaying: false, launchTimeMs: toMinute(s.simTimeMs) } : { isPlaying: true })),
   setTimeScale: (s) => set({ timeScale: s }),
   selectBody: (id) => set({ selectedBodyId: id }),
   setPlanetSize: (size) => set({ planetSize: size }),
@@ -119,14 +125,19 @@ export const useSimStore = create<SimState>()((set, get) => ({
   openLaunchSite: (id) => set({ launchSiteId: id }),
 
   // --- launch sites ---
+  // Choosing a site also opens its 3D model (LaunchSiteViewer, on the right)
   setMissionSiteAt: (slot, id) =>
-    set((s) => ({ missionSites: s.missionSites.map((old, i) => (i === slot ? id : old)), activeSiteSlot: slot })),
+    set((s) => ({
+      missionSites: s.missionSites.map((old, i) => (i === slot ? id : old)),
+      activeSiteSlot: slot,
+      ...(id ? { launchSiteId: id } : {}),
+    })),
   // A red dot on Earth: fills the active slot, or jumps to the slot that already holds that site
   chooseLaunchSite: (id) =>
     set((s) => {
       const existing = s.missionSites.indexOf(id)
-      if (existing !== -1) return { activeSiteSlot: existing }
-      return { missionSites: s.missionSites.map((old, i) => (i === s.activeSiteSlot ? id : old)) }
+      if (existing !== -1) return { activeSiteSlot: existing, launchSiteId: id }
+      return { missionSites: s.missionSites.map((old, i) => (i === s.activeSiteSlot ? id : old)), launchSiteId: id }
     }),
   addMissionSiteSlot: () =>
     set((s) => ({ missionSites: [...s.missionSites, null], activeSiteSlot: s.missionSites.length })),
@@ -135,7 +146,12 @@ export const useSimStore = create<SimState>()((set, get) => ({
       const { slots, active } = withoutSlot(s.missionSites, s.activeSiteSlot, slot)
       return { missionSites: slots, activeSiteSlot: active }
     }),
-  setActiveSiteSlot: (slot) => set({ activeSiteSlot: slot }),
+  // highlighting a filled slot shows that site's model too
+  setActiveSiteSlot: (slot) =>
+    set((s) => {
+      const id = s.missionSites[slot] ?? null
+      return { activeSiteSlot: slot, ...(id && id !== s.launchSiteId ? { launchSiteId: id } : {}) }
+    }),
 
   // --- landing points ---
   // Into the active slot; a named lunar site that is already in another slot just makes that slot active

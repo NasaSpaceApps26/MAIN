@@ -4,7 +4,6 @@ import { MoonSkyDrawer } from './components/MoonSkyDrawer/MoonSkyDrawer'
 import { SolarSystem } from './components/SolarSystem/SolarSystem'
 import { TopBar } from './components/TopBar/TopBar'
 import { LaunchSiteViewer } from './features/launchSites/LaunchSiteViewer'
-import { MissionPanel } from './features/mission/MissionPanel'
 import { MissionResults } from './features/mission/MissionResults'
 
 export default function App() {
@@ -12,7 +11,6 @@ export default function App() {
     <AppLayout header={<TopBar />}>
       <BackendStatus />
       <SolarSystem />
-      <MissionPanel />
       <MoonSkyDrawer />
       <LaunchSiteViewer />
       <MissionResults />

@@ -1,5 +1,5 @@
 import { Color, Vector3 } from 'three'
-import { KM_PER_UNIT } from '../../components/SolarSystem/scale'
+import { KM_PER_UNIT, moonOrbitScale, moonReliefScale, radiusToUnits } from '../../components/SolarSystem/scale'
 import type { MissionTrajectory } from './types'
 
 /** Close to the Moon the path is drawn and flown relative to the Moon, far away relative to Earth. */
@@ -45,6 +45,67 @@ const put = (arr: Float32Array, k: number, x: number, y: number, z: number) => {
   arr[k] = x / KM_PER_UNIT
   arr[k + 1] = z / KM_PER_UNIT
   arr[k + 2] = -y / KM_PER_UNIT
+}
+
+// --- drawing the flight at the planet sizes of the top bar ---
+const R_EARTH_KM = 6371 // as the bodies are drawn (backend services/bodies.py)
+const R_MOON_KM = 1737.4
+const MOON_DIST_KM = 384_400 // mean Earth–Moon distance
+// Altitudes up to about this are stretched like the drawn body itself; above it, like the gap
+// between the bodies. Low enough that the coast stays in proportion, high enough that the parking
+// orbit leaves Earth's surface and the lunar orbit clears the Moon's (exaggerated) mountains.
+const LIFT_EARTH_KM = 300
+const LIFT_MOON_KM = 50
+
+/**
+ * The planet sizes in the top bar draw Earth and the Moon far bigger than they are (and the Moon
+ * further out), while the flight is computed in real km: drawn as is, it would stay inside the
+ * enlarged Earth. A DrawScale stretches it instead, so it lifts off from the drawn Earth's surface,
+ * crosses the drawn gap and lands on the drawn Moon's surface. At "Off" every factor is 1 and
+ * nothing changes.
+ */
+export type DrawScale = {
+  earth: number // drawn Earth radius / real
+  moon: number // drawn Moon radius / real
+  moonSurface: number // drawn lunar heights / real (the Moon's size times its terrain exaggeration)
+  orbit: number // drawn Earth–Moon distance / real
+  gap: number // drawn gap between the two surfaces / real
+}
+
+export const TRUE_SCALE: DrawScale = { earth: 1, moon: 1, moonSurface: 1, orbit: 1, gap: 1 }
+
+/** The DrawScale for a planet size picked in the top bar. */
+export function drawScaleFor(planetSize: number): DrawScale {
+  const earth = radiusToUnits(KM_PER_UNIT, 'earth', planetSize)
+  const moon = radiusToUnits(KM_PER_UNIT, 'moon', planetSize)
+  const orbit = moonOrbitScale(planetSize)
+  const gap = (MOON_DIST_KM * orbit - R_EARTH_KM * earth - R_MOON_KM * moon) / (MOON_DIST_KM - R_EARTH_KM - R_MOON_KM)
+  return { earth, moon, moonSurface: moon * moonReliefScale(planetSize), orbit, gap: Math.max(gap, 1) }
+}
+
+/** Real altitude → drawn altitude (km): `surface`× close to the ground, `gap`× far out, smoothly. */
+const stretch = (h: number, surface: number, gap: number, lift: number) =>
+  h * gap + (surface - gap) * lift * (1 - Math.exp(-h / lift))
+
+/** Scales a point's distance from a body's centre (scene units, in place); its direction stays. */
+function warpRadial(v: Vector3, radiusKm: number, body: number, surface: number, gap: number, lift: number) {
+  const rKm = v.length() * KM_PER_UNIT
+  if (rKm === 0) return v
+  return v.multiplyScalar((radiusKm * body + stretch(rKm - radiusKm, surface, gap, lift)) / rKm)
+}
+
+/** A point relative to Earth's centre → where it is drawn relative to the drawn Earth (in place). */
+export const warpFromEarth = (v: Vector3, s: DrawScale) => warpRadial(v, R_EARTH_KM, s.earth, s.earth, s.gap, LIFT_EARTH_KM)
+
+/** A point relative to the Moon's centre → where it is drawn relative to the drawn Moon (in place). */
+export const warpFromMoon = (v: Vector3, s: DrawScale) => warpRadial(v, R_MOON_KM, s.moon, s.moonSurface, s.gap, LIFT_MOON_KM)
+
+/** A copy of a line's points, each warped. */
+function warpLine(points: Float32Array, warp: (v: Vector3, s: DrawScale) => Vector3, s: DrawScale) {
+  const out = new Float32Array(points.length)
+  const v = new Vector3()
+  for (let k = 0; k < points.length; k += 3) warp(v.fromArray(points, k), s).toArray(out, k)
+  return out
 }
 
 /** A trajectory prepared for drawing and for looking up the spacecraft at any time. */
@@ -125,21 +186,31 @@ export class FlightPath {
 
   private readonly a = new Vector3()
   private readonly b = new Vector3()
+  private readonly c = new Vector3()
+
+  /** The two lines' points as drawn at this scale: Earth part relative to Earth, Moon part to the Moon. */
+  drawnLines(s: DrawScale) {
+    return {
+      earth: warpLine(this.earthLine.positions, warpFromEarth, s),
+      moon: warpLine(this.moonLine.positions, warpFromMoon, s),
+    }
+  }
 
   /**
    * Spacecraft position in the scene at `tS` seconds from liftoff, given where the scene draws
-   * Earth and the Moon right now. Far from the Moon it follows Earth, close to it the Moon, with a
-   * smooth blend between, so it lands exactly on the marker drawn on the Moon.
+   * Earth and the Moon right now, stretched to the drawn sizes (`scale`). Far from the Moon it
+   * follows Earth, close to it the Moon, with a smooth blend between, so it lands exactly on the
+   * marker drawn on the Moon.
    */
-  spacecraft(tS: number, earth: Vector3, moon: Vector3, out: Vector3): Vector3 {
+  spacecraft(tS: number, earth: Vector3, moon: Vector3, out: Vector3, scale: DrawScale = TRUE_SCALE): Vector3 {
     const [i, f] = this.locate(tS)
     const geo = this.lerp(this.tr.r, i, f, this.a)
     const moonGeo = this.lerp(this.tr.moon, i, f, this.b)
     const d = this.moonDist[i] + (this.moonDist[i + 1] - this.moonDist[i]) * f
     const w = 1 - smooth(MOON_NEAR_KM, MOON_FAR_KM, d)
-    // relative to Earth: earth + geo; relative to the Moon: moon + (geo - moonGeo)
-    out.copy(earth).add(geo)
-    const viaMoon = moonGeo.negate().add(geo).add(moon)
+    // relative to the Moon: moon + (geo - moonGeo); relative to Earth: earth + geo
+    const viaMoon = warpFromMoon(this.c.subVectors(geo, moonGeo), scale).add(moon)
+    out.copy(earth).add(warpFromEarth(geo, scale))
     return out.lerp(viaMoon, w)
   }
 

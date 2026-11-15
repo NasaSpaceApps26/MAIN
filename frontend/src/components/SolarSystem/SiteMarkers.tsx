@@ -59,7 +59,7 @@ export function SiteMarkers({ bodyId, equatorialRadius, flattening }: Props) {
     })}
     {/* the mission's own landing points (named sites are already drawn above) */}
     {onMoon && landingPoints.map((p, slot) => p && p.siteId === null && <Dot key={`landing-${slot}`} site={{
-      id: `landing-${slot}`, name: landingLabel(p, slot), lat_deg: p.latDeg,
+      id: `landing-${slot}`, name: landingLabel(p, slot, lunar), lat_deg: p.latDeg,
       lon_deg: p.lonDeg, elevation_m: p.elevationM, notes: p.datasetId,
     }} radius={equatorialRadius} flattening={0} lunar selected
       colour={slot === activeSlot ? ACTIVE_COLOUR : OTHER_COLOUR}
