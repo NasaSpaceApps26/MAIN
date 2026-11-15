@@ -2,7 +2,7 @@ import { useRef, useState } from 'react'
 import { Html } from '@react-three/drei'
 import { useFrame } from '@react-three/fiber'
 import { Vector3, type Group, type Mesh } from 'three'
-import { ACTIVE_COLOUR, OTHER_COLOUR } from '../../features/mission/landing'
+import { ACTIVE_COLOUR, OTHER_COLOUR, landingLetter } from '../../features/mission/landing'
 import { useSimStore } from '../../store/simStore'
 import { latLonToLocal } from './sitePosition'
 import { moonHeight, moonPosition, terrainDataset, useMoonTerrain } from './EarthMoon/moonTerrain'
@@ -47,11 +47,12 @@ export function MoonSpots({ spots, colour, equatorialRadius, flattening }: Props
   }
 
   return <>
-    {spots.map((spot) => (
-      <SpotDot key={spot.siteId} spot={spot} radius={equatorialRadius} flattening={flattening}
+    {spots.map((spot) => {
+      const slot = landingPoints.findIndex((p) => p?.siteId === spot.siteId)
+      return <SpotDot key={spot.siteId} spot={spot} radius={equatorialRadius} flattening={flattening}
         terrainLoaded={terrainLoaded} picking={picking} colour={colour}
-        missionColour={missionColour(spot)} />
-    ))}
+        missionColour={missionColour(spot)} missionLetter={slot === -1 ? null : landingLetter(slot)} />
+    })}
   </>
 }
 
@@ -68,9 +69,10 @@ function chooseAsLandingPoint(spot: MoonSpot) {
   s.setPickingLanding(false) // one click, one point
 }
 
-function SpotDot({ spot, radius, flattening, terrainLoaded, picking, colour, missionColour }: {
+function SpotDot({ spot, radius, flattening, terrainLoaded, picking, colour, missionColour, missionLetter }: {
   spot: MoonSpot; radius: number; flattening: number; terrainLoaded: boolean
   picking: boolean; colour: string; missionColour: string | null
+  missionLetter: string | null // "A", "B"…: the spot is that landing of the mission
 }) {
   const group = useRef<Group>(null)
   const dot = useRef<Mesh>(null)
@@ -123,7 +125,7 @@ function SpotDot({ spot, radius, flattening, terrainLoaded, picking, colour, mis
         fontSize: 11, pointerEvents: 'none',
         whiteSpace: details ? 'normal' : 'nowrap', width: details ? 240 : undefined,
       }}>
-        <strong>{spot.name}</strong> · {spot.tag}
+        {missionLetter && <>Landing {missionLetter} · </>}<strong>{spot.name}</strong> · {spot.tag}
         {details && <>
           <div style={{ opacity: 0.75 }}>
             {spot.subtitle} · {spot.latDeg.toFixed(2)}°, {spot.lonDeg.toFixed(2)}°

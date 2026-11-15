@@ -83,6 +83,10 @@
 .moon-sky .site circle { fill: #c9ccd6; stroke: #0b0f1a; stroke-width: 1.5; cursor: pointer; }
 .moon-sky .site:hover circle { fill: #fff; r: 6; }
 .moon-sky .site.active circle { fill: var(--accent); }
+/* the mission's alternative landings (B, C…): orange, like their dots on the 3D Moon */
+.moon-sky .alt circle { fill: #ff9f1c; stroke: #0b0f1a; stroke-width: 1.5; cursor: help; }
+.moon-sky .alt text { fill: #ff9f1c; font-size: 12px; font-weight: 700; paint-order: stroke; stroke: #000a; stroke-width: 3px; pointer-events: none; }
+.moon-sky .dot.alt { background: #ff9f1c; }
 .moon-sky .cursor circle { fill: none; stroke: #ff5577; stroke-width: 2; }
 .moon-sky .cursor line { stroke: #ff5577; stroke-width: 1.5; }
 .moon-sky .maplegend { display: flex; flex-wrap: wrap; gap: 6px 16px; margin-top: 8px; font-size: 12px; align-items: center; }
@@ -128,7 +132,17 @@
 /* Sky card header: title and the 3D / 2D switch */
 .moon-sky .sky-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .moon-sky .seg { display: inline-flex; gap: 2px; }
-.moon-sky .seg button { padding: 3px 10px; font-size: 12px; }
+.moon-sky .sky-controls { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.moon-sky .sky-of { color: var(--muted); font-weight: 400; font-size: 0.85em; }
+
+/* Landing settings: the big Add at the bottom adds the chosen point as the next landing */
+.moon-sky .apply-big {
+  display: block; width: 100%; margin-top: 12px; padding: 12px 16px;
+  background: #2b4d9a; border: 1px solid #3d63bd; border-radius: 8px;
+  font-size: 15px; font-weight: 600; letter-spacing: 0.02em; cursor: pointer;
+}
+.moon-sky .apply-big:hover:not(:disabled) { background: #3459b0; }
+.moon-sky .apply-big:disabled { background: none; border-color: var(--line); color: var(--muted); opacity: 0.7; cursor: not-allowed; }.moon-sky .seg button { padding: 3px 10px; font-size: 12px; }
 .moon-sky .seg button.on { background: #2b4d9a; border-color: #3d63bd; }
 
 /* 3D sky dome */

@@ -16,19 +16,29 @@ export function siteAt(latDeg: number, lonDeg: number, sites?: Site[]) {
 }
 
 /**
- * Name for a landing point: the lunar site, historic landing or Moon feature it came from (also a
- * lunar site picked by its coordinates, on the Lunar Sky map or typed in), or "Selected point" for
- * a place of the user's own ("Selected point 2" in the second slot, …).
+ * The mission's landing slots are lettered. A (slot 0) is the primary landing: the rocket flies
+ * there and Lunar Sky shows it. B, C… are alternatives: dots on the Moon, no rocket, compared with A
+ * in Lunar Sky ("Landing comparison").
  */
-export function landingLabel(point: LandingPoint | null, slot: number, sites?: Site[]) {
-  if (!point) return 'Not set'
+export const PRIMARY_SLOT = 0
+export const landingLetter = (slot: number) => 'ABCDEFGH'[slot] ?? String(slot + 1)
+
+/** Name of the named place a landing point is on, if any (lunar site, historic landing, Moon feature). */
+function placeName(point: LandingPoint, sites?: Site[]) {
   if (point.siteId) {
     return sites?.find((s) => s.id === point.siteId)?.name
       ?? historicLandingById(point.siteId)?.name
       ?? moonFeatureById(point.siteId)?.name
       ?? point.siteId
   }
-  const site = siteAt(point.latDeg, point.lonDeg, sites)
-  if (site) return site.name
-  return slot === 0 ? 'Selected point' : `Selected point ${slot + 1}`
+  // also a lunar site picked by its coordinates (on the Lunar Sky map or typed in)
+  return siteAt(point.latDeg, point.lonDeg, sites)?.name ?? null
+}
+
+/** "Landing A", "Landing B · Tycho" (on a named place), "Landing C: not set". */
+export function landingLabel(point: LandingPoint | null, slot: number, sites?: Site[]) {
+  const base = `Landing ${landingLetter(slot)}`
+  if (!point) return `${base}: not set`
+  const name = placeName(point, sites)
+  return name ? `${base} · ${name}` : base
 }

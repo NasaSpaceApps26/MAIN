@@ -4,7 +4,8 @@ import { apiGet, apiPost } from '../../api/client'
 import { LAUNCH_SITES, siteById, type LaunchSiteId } from '../launchSites/sites'
 import { useSimStore } from '../../store/simStore'
 import { PROFILES } from '../launchSites/launch/profiles'
-import { flightPathOf, phaseSpeed } from './flightPath'
+import { overviewRequests } from './flightCamera'
+import { PRIMARY_SLOT } from './landing'
 import type { MissionMode, MissionResult, MissionStatus } from './types'
 
 const HOUR = 3_600_000
@@ -46,14 +47,12 @@ type MissionState = {
   elapsedS: number
   error: string | null
   result: MissionResult | null
-  autoSpeed: boolean // the clock speed follows the flight phase
   // the flight was just computed: the rocket in the launch site window lifts off on its own
   // (LaunchPanel takes it), or the clock just starts if that window is closed
   launchPending: boolean
   setLaunch: (c: Coord, name: string) => void
   setLanding: (c: Coord) => void
   setMode: (m: MissionMode) => void
-  setAutoSpeed: (on: boolean) => void
   compute: () => Promise<void>
   clear: () => void
   takeLaunch: () => boolean
@@ -63,16 +62,23 @@ type MissionState = {
 export const COUNTDOWN_S = PROFILES.saturnV.countdown
 
 /**
- * Starts the computed flight on the mission clock: liftoff in COUNTDOWN_S seconds, the camera on
- * the spacecraft, the clock speed following the flight phase.
+ * Starts the computed flight on the mission clock: the clock at the start of the countdown
+ * (liftoff COUNTDOWN_S seconds later) and the camera on the spacecraft. The speed is never touched:
+ * the flight runs at whatever speed is picked in the top bar.
+ *
+ * `play: false` when the launch site window is about to run the clock itself (LaunchTimeSync, in
+ * real time with the countdown and the 3D liftoff): the clock waits for it, so it does not run
+ * ahead at the top bar's speed in between.
  */
-export function startFlightClock(result: MissionResult | null = useMissionStore.getState().result) {
+export function startFlightClock(
+  result: MissionResult | null = useMissionStore.getState().result,
+  { play = true }: { play?: boolean } = {},
+) {
   if (!result?.trajectory) return
   const sim = useSimStore.getState()
+  if (!play && sim.isPlaying) sim.togglePlay()
   sim.setSimTime(result.trajectory.launch_ms - COUNTDOWN_S * 1000)
-  sim.setTimeScale(10)
-  useMissionStore.getState().setAutoSpeed(true)
-  if (!sim.isPlaying) sim.togglePlay()
+  if (play && !sim.isPlaying) sim.togglePlay()
   sim.selectBody('rocket')
 }
 
@@ -88,11 +94,14 @@ function onComputed(result: MissionResult, siteId: LaunchSiteId | null) {
   } else startFlightClock(result)
 }
 
-/** The inputs the mission panel describes right now; null while a launch site or landing point is missing. */
+/**
+ * The inputs the mission panel describes right now; null while a launch site or the primary landing
+ * is missing. The rocket always flies to the primary landing (A); B, C… are only compared.
+ */
 export function plannedInputs(mode = useMissionStore.getState().mode): FlightInputs | null {
   const s = useSimStore.getState()
   const siteId = s.missionSites[s.activeSiteSlot] ?? null
-  const landing = s.landingPoints[s.activeLandingSlot] ?? null
+  const landing = s.landingPoints[PRIMARY_SLOT] ?? null
   if (!siteId || !landing) return null
   return {
     siteId,
@@ -131,7 +140,6 @@ export const useMissionStore = create<MissionState>()((set, get) => ({
   elapsedS: 0,
   error: null,
   result: null,
-  autoSpeed: true,
   launchPending: false,
   setLaunch: (launch, launchName) => set({ launch, launchName }),
   setLanding: (landing) => {
@@ -139,7 +147,6 @@ export const useMissionStore = create<MissionState>()((set, get) => ({
     if (Math.abs(l.lat - landing.lat) > 1e-6 || Math.abs(l.lon - landing.lon) > 1e-6) set({ landing })
   },
   setMode: (mode) => set({ mode }),
-  setAutoSpeed: (autoSpeed) => set({ autoSpeed }),
 
   /** Ask the backend for the flight (cached results come back at once), then poll until it is done. */
   compute: async () => {
@@ -207,7 +214,7 @@ export function currentFlight(): MissionResult | null {
 
 /** The mission panel's flight inputs as one string, so a hook re-renders when any of them changes. */
 const plannedKey = (s: ReturnType<typeof useSimStore.getState>) => {
-  const landing = s.landingPoints[s.activeLandingSlot]
+  const landing = s.landingPoints[PRIMARY_SLOT]
   return `${s.missionSites[s.activeSiteSlot]}|${landing?.latDeg}|${landing?.lonDeg}`
 }
 
@@ -230,20 +237,26 @@ export function useFlightStatus(): MissionState['status'] {
 }
 
 /**
- * Watch the flight in the space view from `tS` seconds after liftoff: clock there, speed set by
- * the flight phase, playing, camera following the spacecraft.
+ * The camera pulls back smoothly from where it is (close to the rocket) to the view of Earth and
+ * the Moon that shows the whole flight (flightCamera.ts, run by MissionScene), then travels with Earth.
+ */
+export function showFlightOverview() {
+  useSimStore.getState().selectBody(null) // the pull-back moves the camera itself; it selects Earth when done
+  overviewRequests.request++
+}
+
+/**
+ * Watch the flight in the space view from `tS` seconds after liftoff: clock there and playing at
+ * the speed picked in the top bar (never changed here), camera pulling back from the rocket to the
+ * Earth–Moon overview.
  */
 export function followFlight(tS: number) {
   const flight = currentFlight()
   if (!flight?.trajectory) return false
-  const path = flightPathOf(flight.trajectory)
   const sim = useSimStore.getState()
-  sim.setSimTime(path.launchMs + tS * 1000)
-  const st = path.state(Math.max(tS, 0))
-  sim.setTimeScale(tS < 0 ? 10 : phaseSpeed(st.phase, st.moonDistKm))
-  useMissionStore.getState().setAutoSpeed(true)
+  sim.setSimTime(flight.trajectory.launch_ms + tS * 1000)
   if (!sim.isPlaying) sim.togglePlay()
-  sim.selectBody('rocket')
+  showFlightOverview()
   return true
 }
 

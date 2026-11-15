@@ -4,6 +4,7 @@ import { Quaternion, Vector3 } from 'three'
 import type { Body, EphemerisYear } from '../../api/types'
 import { useSimStore } from '../../store/simStore'
 import { rocketTracker } from '../../features/mission/missionStore'
+import { followControl } from './followControl'
 import { drawnPositionAt, parentSamplesOf, positionAt } from './orbitMath'
 import { moonOrbitScale, radiusToUnits } from './scale'
 
@@ -130,12 +131,18 @@ export function CameraFollow({ bodies, year }: Props) {
     const key = `${body.id}:${planetSize}`
     if (jumpedTo.current !== key) {
       jumpedTo.current = key
-      // Jump: stay on the side of the body we're already on, ~8 radii away, and look at it
-      step.current.subVectors(camera.position, bodyPos.current).normalize()
-      if (step.current.lengthSq() === 0) step.current.set(0, 0.5, 1).normalize()
-      const distance = radiusToUnits(body.radius_km, body.id, planetSize) * 8
-      camera.position.copy(bodyPos.current).addScaledVector(step.current, distance)
-      camera.lookAt(bodyPos.current)
+      if (followControl.keepPositionFor === body.id) {
+        // handed over by another camera move (the flight overview, see followControl): no jump,
+        // the camera stays where it is and travels with the body from here
+        followControl.keepPositionFor = null
+      } else {
+        // Jump: stay on the side of the body we're already on, ~8 radii away, and look at it
+        step.current.subVectors(camera.position, bodyPos.current).normalize()
+        if (step.current.lengthSq() === 0) step.current.set(0, 0.5, 1).normalize()
+        const distance = radiusToUnits(body.radius_km, body.id, planetSize) * 8
+        camera.position.copy(bodyPos.current).addScaledVector(step.current, distance)
+        camera.lookAt(bodyPos.current)
+      }
     } else {
       // Travel with the body: move the camera exactly as far as the body moved since last frame
       camera.position.add(step.current.subVectors(bodyPos.current, lastBodyPos.current))

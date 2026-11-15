@@ -40,6 +40,67 @@
   color: var(--text-dim);
 }
 
+/* status, Clear and hide on the right of the title */
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.headerRight .small {
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+.hide {
+  padding: 0 4px;
+  border: none;
+  background: none;
+  color: var(--text-dim);
+  font-size: 14px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.hide:hover {
+  color: var(--accent);
+}
+
+.hide:focus-visible,
+.tab:focus-visible {
+  outline: 1px solid var(--accent);
+  outline-offset: 1px;
+}
+
+/* the hidden planner: one small tab where the panel was */
+.tab {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  translate: -50% 0;
+  z-index: 2;
+  padding: 6px 12px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: rgba(4, 12, 34, 0.86);
+  color: var(--accent);
+  font-family: var(--font-display);
+  font-size: 11px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.tab:hover {
+  border-color: var(--accent);
+}
+
+/* while the launch site window is open the panel sits on the left: so does its tab */
+.tabDocked {
+  left: 48px;
+  translate: none;
+}
+
 .ok {
   color: #7dffa8;
 }

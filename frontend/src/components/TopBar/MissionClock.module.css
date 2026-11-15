@@ -1,43 +1,46 @@
+/* Compact, one line: the date, the time and the speed labels never wrap */
 .clock {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 6px 8px 6px 14px;
+  gap: 8px;
+  padding: 6px 6px 6px 10px;
   background: var(--panel);
   border: 1px solid var(--line);
   border-radius: 4px;
+  white-space: nowrap;
 }
 
 .readout {
   display: flex;
   align-items: baseline;
-  gap: 8px;
+  gap: 6px;
 }
 
 .label {
   font-size: 10px;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.14em;
   color: var(--accent);
 }
 
 .date {
-  font-size: 18px;
+  font-size: 16px;
   font-variant-numeric: tabular-nums;
   color: var(--text-dim);
 }
 
 .time {
   min-width: 8ch;
-  font-size: 18px;
+  font-size: 16px;
   font-variant-numeric: tabular-nums;
   text-shadow: 0 0 6px var(--glow);
 }
 
 .play {
   display: grid;
+  flex-shrink: 0;
   place-items: center;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   font-size: 12px;
   color: var(--accent);
   background: transparent;
@@ -60,9 +63,10 @@
 }
 
 .speed {
-  padding: 6px 10px;
+  padding: 5px 7px;
   font-size: 11px;
   color: var(--text-dim);
+  white-space: nowrap;
   background: transparent;
   border: 0;
   border-right: 1px solid var(--line);

@@ -24,8 +24,9 @@ const FULL = { zoom: 1, cx: W / 2, cy: H / 2 };
  * Lunar photo map to pick the landing site: the high-resolution LROC mosaic from the backend (the
  * same imagery as the 3D Moon), sharper tiles once zoomed in. Wheel or +/− zooms, drag pans,
  * click picks a point.
+ * `others`: the mission's other landings as lettered dots, [{ key, letter, label, lat, lon, note? }].
  */
-export default function MoonMap({ lat, lon, sites, siteId, onPick }) {
+export default function MoonMap({ lat, lon, sites, siteId, onPick, others = [] }) {
   const [hover, setHover] = useState(null);
   const [view, setView] = useState(FULL);
   const [widthPx, setWidthPx] = useState(W);
@@ -124,7 +125,8 @@ export default function MoonMap({ lat, lon, sites, siteId, onPick }) {
           onPointerUp={(e) => {
             const d = drag.current;
             drag.current = null;
-            if (d && !d.moved && !e.target.closest('.site')) onPick(toCoord(e));
+            // a click on a named site picks it (its own handler); on an alternative's dot, nothing
+            if (d && !d.moved && !e.target.closest('.site, .alt')) onPick(toCoord(e));
           }}
           onPointerLeave={() => setHover(null)}>
           <defs>
@@ -173,6 +175,14 @@ export default function MoonMap({ lat, lon, sites, siteId, onPick }) {
             </g>
           ))}
 
+          {others.map((o) => (
+            <g key={o.key} className="alt">
+              <circle cx={X(o.lon)} cy={Y(o.lat)} r={5.5} />
+              <text x={X(o.lon) + 8} y={Y(o.lat) + 4}>{o.letter}</text>
+              <title>{`${o.label} – ${o.lat.toFixed(4)}°, ${o.lon.toFixed(4)}°${o.note ? ` (${o.note})` : ''}`}</title>
+            </g>
+          ))}
+
           <g className="cursor" pointerEvents="none">
             <circle cx={X(lon)} cy={Y(lat)} r={9} />
             <line x1={X(lon) - 14} x2={X(lon) + 14} y1={Y(lat)} y2={Y(lat)} />
@@ -190,6 +200,7 @@ export default function MoonMap({ lat, lon, sites, siteId, onPick }) {
       <div className="maplegend">
         <span><i className="dot site" /> landing sites</span>
         <span><i className="dot cur" /> selected location</span>
+        {others.length > 0 && <span><i className="dot alt" /> the mission's other landings</span>}
         <span className="muted">{hover ? `cursor: ${hover.lat}°, ${hover.lon}°` : 'wheel to zoom · drag to pan'}</span>
       </div>
     </div>

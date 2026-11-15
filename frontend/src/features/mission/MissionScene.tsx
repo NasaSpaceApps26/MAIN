@@ -1,19 +1,22 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
-import { BufferAttribute, BufferGeometry, Group, Vector3 } from 'three'
+import { BufferAttribute, BufferGeometry, Group, type PerspectiveCamera, Vector3 } from 'three'
 import type { StateSample } from '../../api/types'
+import { followControl } from '../../components/SolarSystem/followControl'
 import { positionAt } from '../../components/SolarSystem/orbitMath'
+import { KM_PER_UNIT } from '../../components/SolarSystem/scale'
 import { useSimStore } from '../../store/simStore'
-import { type FlightPath, countUpTo, drawScaleFor, flightPathOf, phaseSpeed, turnWithMoon, warpFromMoon } from './flightPath'
+import { type FramePoint, type OverviewFrame, OverviewPan, overviewFrame, overviewRequests } from './flightCamera'
+import { type FlightPath, countUpTo, drawScaleFor, flightPathOf, turnWithMoon, warpFromMoon } from './flightPath'
 import { rocketTracker, useMissionStore } from './missionStore'
 
 const OBLIQUITY = (23.439291111 * Math.PI) / 180
 /** Earth's north pole in scene axes (ecliptic frame, y = ecliptic north). */
 const EARTH_POLE = new Vector3(0, Math.cos(OBLIQUITY), -Math.sin(OBLIQUITY))
 const EARTH_SPIN = 7.2921159e-5 // rad/s
-/** Clock speed after touchdown: 1 h/s, the slowest speed in the top bar. */
-const LANDED_TIME_SCALE = 3_600
+const EARTH_RADIUS_KM = 6_378.137
+const MOON_RADIUS_KM = 1_737.4
 
 const labelStyle = {
   transform: 'translate(10px, -50%)',
@@ -61,6 +64,15 @@ function PathLines({ path, earth, moon }: { path: FlightPath } & Required<Props>
   const m = useLine(drawn.moon, path.moonLine.colors)
   const v = useMemo(() => ({ earth: new Vector3(), moon: new Vector3(), tmp: new Vector3() }), [])
 
+  // the overview pull-back (showFlightOverview) and what it keeps in the picture, relative to Earth:
+  // Earth, the Moon now, the Moon where the flight meets it and the Moon at the end of the flight
+  const pan = useRef(new OverviewPan())
+  const frame = useRef({
+    points: [0, 1, 2, 3].map((): FramePoint => ({ p: new Vector3(), r: 0 })),
+    view: { center: new Vector3(), dir: new Vector3(), dist: 1 } as OverviewFrame,
+    rocket: new Vector3(),
+  })
+
   // Touchdown: the clock stops there. When it is started again by hand, this mission's path
   // disappears (the rocket and the landing site stay). A newly computed flight shows its path again.
   const [hiddenFor, setHiddenFor] = useState<FlightPath | null>(null)
@@ -80,7 +92,7 @@ function PathLines({ path, earth, moon }: { path: FlightPath } & Required<Props>
     [e, m],
   )
 
-  useFrame(() => {
+  useFrame(({ camera }, dt) => {
     const sim = useSimStore.getState()
     let tS = (sim.simTimeMs - path.launchMs) / 1000
 
@@ -138,21 +150,42 @@ function PathLines({ path, earth, moon }: { path: FlightPath } & Required<Props>
     if (afterEnd) turnWithMoon(v.tmp, endMs, sim.simTimeMs)
     site.current?.position.copy(v.moon).add(warpFromMoon(v.tmp, scale))
 
+    // Where the flight is comes only from the mission clock (top bar): nothing here changes the
+    // clock's speed, the flight runs at whatever speed is picked there
     const st = path.state(Math.max(tS, 0))
     rocketTracker.phase = tS < 0 ? 'On the launch pad' : st.phase
     rocketTracker.tS = tS
     if (label.current) label.current.textContent = rocketTracker.phase
 
-    // clock speed follows the phase while the flight plays; once the rocket has landed the clock
-    // keeps running at the top bar's normal speed (1 h/s) and the speed is the user's again
-    const { autoSpeed } = useMissionStore.getState()
-    if (autoSpeed && sim.isPlaying && tS > -600) {
-      if (tS > path.endS || st.phase.startsWith('On the surface')) {
-        sim.setTimeScale(LANDED_TIME_SCALE)
-        useMissionStore.getState().setAutoSpeed(false)
-      } else {
-        const want = tS < 0 ? 10 : phaseSpeed(st.phase, st.moonDistKm)
-        if (sim.timeScale !== want) sim.setTimeScale(want)
+    // The overview (showFlightOverview, e.g. when the launch site window closes after liftoff):
+    // pull back from where the camera is until Earth and the Moon, now and where the flight meets
+    // it, are all in the picture; then hand over to CameraFollow, which travels with Earth
+    const cam = camera as PerspectiveCamera
+    const cameraN = sim.cameraRequest?.n ?? 0
+    if (overviewRequests.request > overviewRequests.handled) {
+      overviewRequests.handled = overviewRequests.request
+      if (rocket.current) pan.current.start(v.tmp.subVectors(cam.position, rocket.current.position), cameraN)
+    }
+    if (pan.current.running && rocket.current) {
+      // picking a body or pressing a camera view button takes the camera back at once
+      if (sim.selectedBodyId !== null || cameraN !== pan.current.cameraRequestN) pan.current.running = false
+      else {
+        const f = frame.current
+        const [earthPt, moonNow, moonMeet, moonEnd] = f.points
+        const moonRoom = (MOON_RADIUS_KM / KM_PER_UNIT) * scale.moon * 1.5
+        earthPt.r = (EARTH_RADIUS_KM / KM_PER_UNIT) * scale.earth * 1.2
+        moonNow.p.subVectors(v.moon, v.earth)
+        moonNow.r = moonRoom
+        path.moonGeo(path.arrivalS, moonMeet.p).multiplyScalar(scale.orbit)
+        moonMeet.r = moonRoom
+        path.moonGeo(path.endS, moonEnd.p).multiplyScalar(scale.orbit)
+        moonEnd.r = moonRoom
+        overviewFrame(v.earth, f.points, cam, f.view)
+        f.rocket.subVectors(rocket.current.position, v.earth)
+        if (pan.current.update(dt, cam, v.earth, f.rocket, f.view)) {
+          followControl.keepPositionFor = 'earth' // no jump: the camera stays on the overview
+          sim.selectBody('earth')
+        }
       }
     }
   })

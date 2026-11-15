@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import MoonSky from '../../features/moonSky/MoonSky.jsx'
+import { useSimStore } from '../../store/simStore'
 import styles from './MoonSkyDrawer.module.css'
 
 const TABS = [
@@ -47,6 +48,9 @@ export function MoonSkyDrawer() {
   // mount the calculator on first open, then keep it mounted so its state and data survive closing
   const [mounted, setMounted] = useState(open)
   if (open && !mounted) setMounted(true)
+
+  // tell the rest of the app (the mission panel folds away while the drawer is open)
+  useEffect(() => useSimStore.getState().setDrawerOpen(open), [open])
 
   useEffect(() => {
     if (!open) return

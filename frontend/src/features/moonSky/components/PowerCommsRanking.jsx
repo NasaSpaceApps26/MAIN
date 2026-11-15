@@ -1,8 +1,6 @@
 import { useMemo } from 'react';
-import { useLunarSites } from '../../../api/hooks';
 import { useSimStore } from '../../../store/simStore';
 import { LAUNCH_SITES } from '../../launchSites/sites';
-import { landingLabel } from '../../mission/landing';
 import { formatDuration } from '../analysis.js';
 import { fmtUtc } from '../format.js';
 import { rankPairs } from '../ranking.js';
@@ -17,27 +15,23 @@ const tone = (v, good, mid, more = true) =>
   (more ? v >= good : v <= good) ? 'good' : (more ? v >= mid : v <= mid) ? 'mid' : 'bad';
 
 /**
- * Every landing site of the mission (plus the point shown in Lunar Sky) with every launch site,
- * ranked by power and communications over the Lunar Sky range. A click on a row shows that landing
- * site in Lunar Sky.
+ * The point shown in Lunar Sky (the mission's primary landing, A) with every launch site (ground
+ * station), ranked by power and communications over the Lunar Sky range. The alternative landings
+ * (B, C…) are compared with A in the "Landing comparison" table below.
  *  p        – the Lunar Sky settings (point, range, step, rise/set mode)
  *  pointName – name of the Lunar Sky point
  *  station  – the launch site Lunar Sky uses now (highlighted)
  */
-export default function PowerCommsRanking({ p, pointName, station, onPick }) {
-  const landingPoints = useSimStore((s) => s.landingPoints);
+export default function PowerCommsRanking({ p, pointName, station }) {
   const missionSites = useSimStore((s) => s.missionSites);
-  const { data: lunarSites } = useLunarSites();
   const startMs = Date.parse(p.start + ':00Z');
   const mode = p.mode === 'custom' ? p.thr : p.mode;
 
-  // the mission's landing points, and the Lunar Sky point if it is not one of them
-  const points = useMemo(() => {
-    const list = landingPoints.flatMap((pt, slot) =>
-      pt ? [{ key: `slot${slot}`, label: landingLabel(pt, slot, lunarSites), lat: pt.latDeg, lon: pt.lonDeg }] : []);
-    if (!list.some((pt) => same(pt, p))) list.push({ key: 'lunar-sky', label: pointName, lat: p.lat, lon: p.lon });
-    return list;
-  }, [landingPoints, lunarSites, p, pointName]);
+  // only the Lunar Sky point: one row per launch site
+  const points = useMemo(
+    () => [{ key: 'lunar-sky', label: pointName, lat: p.lat, lon: p.lon }],
+    [p.lat, p.lon, pointName],
+  );
 
   const { byKey, pending, failed } = useSkyForPoints(points, { start: startMs, days: p.days, step: p.step });
 
@@ -78,9 +72,7 @@ export default function PowerCommsRanking({ p, pointName, station, onPick }) {
                 const active = same(r.point, p) && r.station.name === station?.name;
                 const inMission = missionSites.includes(r.station.id);
                 return (
-                  <tr key={r.key} className={active ? 'active' : undefined}
-                    onClick={() => onPick({ lat: r.point.lat, lon: r.point.lon })}
-                    title="Show this landing site in Lunar Sky">
+                  <tr key={r.key} className={active ? 'active' : undefined}>
                     <td>{i + 1}</td>
                     <td>{r.point.label}</td>
                     <td>{r.station.name}{inMission && <span className="tag" title="In the mission panel">mission</span>}</td>

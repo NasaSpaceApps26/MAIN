@@ -20,22 +20,6 @@ export function phaseColor(name: string): string {
   return '#ffffff'
 }
 
-/**
- * How many simulated seconds pass per real second in each phase, so the whole flight plays in a
- * couple of minutes but the launch and the landing are still slow enough to watch.
- */
-export function phaseSpeed(name: string, moonDistKm: number): number {
-  if (name.startsWith('Ascent')) return 20
-  if (name.startsWith('Parking orbit')) return 600
-  if (name.startsWith('TLI')) return 60
-  if (name.startsWith('Coast to the Moon')) return moonDistKm < 40_000 ? 900 : 7200
-  if (name.startsWith('LOI')) return 120
-  if (name.endsWith('orbit')) return 600 // lunar orbit, descent orbit
-  if (name.startsWith('DOI')) return 60
-  if (name.startsWith('Landing')) return 20
-  return 10
-}
-
 const smooth = (a: number, b: number, x: number) => {
   const u = Math.min(Math.max((x - a) / (b - a), 0), 1)
   return u * u * (3 - 2 * u)

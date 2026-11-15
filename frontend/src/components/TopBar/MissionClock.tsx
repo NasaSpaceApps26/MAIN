@@ -43,11 +43,6 @@ export function MissionClock() {
             {s.label}
           </button>
         ))}
-        {!SPEEDS.some((s) => s.value === timeScale) && (
-          <span className={`${styles.speed} ${styles.active}`} title="The speed follows the flight phase">
-            auto
-          </span>
-        )}
       </div>
     </div>
   )

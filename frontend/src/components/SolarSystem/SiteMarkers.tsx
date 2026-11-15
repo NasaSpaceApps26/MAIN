@@ -53,7 +53,10 @@ export function SiteMarkers({ bodyId, equatorialRadius, flattening }: Props) {
   return <>
     {sites.map((site) => {
       const colour = siteColour(site)
-      return <Dot key={site.id} site={site} radius={equatorialRadius}
+      // a named site in the mission is labelled with its landing letter: "Landing B · Tycho"
+      const slot = onMoon ? landingPoints.findIndex((p) => p?.siteId === site.id) : -1
+      const shown = slot === -1 ? site : { ...site, name: landingLabel(landingPoints[slot], slot, lunar) }
+      return <Dot key={site.id} site={shown} radius={equatorialRadius}
         flattening={flattening} lunar={onMoon} selected={colour !== null} colour={colour ?? undefined}
         terrainLoaded={terrainLoaded} onSelect={() => choose(site)} />
     })}

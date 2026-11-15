@@ -3,7 +3,7 @@ import { useLunarSites } from '../../api/hooks'
 import type { Site } from '../../api/types'
 import { LAUNCH_SITES, siteById, type LaunchSiteId } from '../../features/launchSites/sites'
 import { ROCKETS, type RocketId } from '../../features/mission/flightPlan'
-import { landingLabel, siteAt } from '../../features/mission/landing'
+import { PRIMARY_SLOT, landingLabel, siteAt } from '../../features/mission/landing'
 import { useMissionStore } from '../../features/mission/missionStore'
 import type { MissionMode } from '../../features/mission/types'
 import { MAX_LANDING_POINTS, missionReady, useSimStore } from '../../store/simStore'
@@ -38,10 +38,14 @@ const FUEL_POLICIES: { id: MissionMode; label: string; hint: string }[] = [
 const pad2 = (n: number) => String(Math.floor(n)).padStart(2, '0')
 const fmtMin = (s: number) => `${Math.floor(s / 60)}:${pad2(s % 60)}`
 
-/** Opens the Landing settings drawer on the left, where the landing site is picked on the Moon map. */
-function openLandingMap() {
+/**
+ * Opens a tab of the drawer on the left (MoonSkyDrawer keeps its open tab in the URL hash):
+ *  '#landing-settings' – the Moon map, to pick the landing site
+ *  '#moon-sky'         – Lunar Sky: sky, data, launch sites, power & comms ranking, windows
+ */
+function openMoonDrawer(hash: '#landing-settings' | '#moon-sky') {
   const { pathname, search } = window.location
-  window.history.replaceState(null, '', pathname + search + '#landing-settings')
+  window.history.replaceState(null, '', pathname + search + hash)
   window.dispatchEvent(new HashChangeEvent('hashchange'))
 }
 
@@ -49,8 +53,9 @@ const sameSpot = (a: { lat: number; lon: number }, latDeg: number, lonDeg: numbe
   Math.abs(a.lat - latDeg) < 1e-6 && Math.abs(a.lon - lonDeg) < 1e-6
 
 /**
- * Keeps the landing point being edited here and the one on the Moon map (Landing settings drawer)
- * the same, both ways.
+ * Keeps the primary landing (A, where the rocket flies) and the Lunar Sky point (the Moon map in the
+ * Landing settings drawer, and everything Lunar Sky shows) the same, both ways. The alternatives
+ * (B, C…) never become the Lunar Sky point: Lunar Sky compares them in its own table.
  */
 function useLandingSync(lunarSites: Site[] | undefined) {
   // the subscription below lives as long as the panel: it reads the latest list through a ref
@@ -58,23 +63,29 @@ function useLandingSync(lunarSites: Site[] | undefined) {
   useEffect(() => {
     sitesRef.current = lunarSites
   }, [lunarSites])
-  const point = useSimStore((s) => s.landingPoints[s.activeLandingSlot] ?? null)
-  // picked here (globe, list, coordinates) or another slot made active: the Moon map shows it
+  const primary = useSimStore((s) => s.landingPoints[PRIMARY_SLOT] ?? null)
+  // landing A picked here (globe, list, coordinates): Lunar Sky and its Moon map show it
   useEffect(() => {
-    if (point) useMissionStore.getState().setLanding({ lat: point.latDeg, lon: point.lonDeg })
-  }, [point])
-  // picked on the Moon map: into the active landing slot
+    if (primary) useMissionStore.getState().setLanding({ lat: primary.latDeg, lon: primary.lonDeg })
+  }, [primary])
+  // picked on the Lunar Sky / Landing settings Moon map: that is landing A
   useEffect(
     () =>
       useMissionStore.subscribe((m, prev) => {
         if (m.landing === prev.landing) return
         const s = useSimStore.getState()
-        const p = s.landingPoints[s.activeLandingSlot]
+        const p = s.landingPoints[PRIMARY_SLOT]
         if (p && sameSpot(m.landing, p.latDeg, p.lonDeg)) return
         const { lat, lon } = m.landing
         // a named site picked on the Lunar Sky map keeps its name
         const siteId = siteAt(lat, lon, sitesRef.current)?.id ?? null
-        s.setLandingPoint({ latDeg: lat, lonDeg: lon, elevationM: moonHeight(lat, lon), datasetId: terrainDataset(), siteId })
+        s.setLandingPointAt(PRIMARY_SLOT, {
+          latDeg: lat,
+          lonDeg: lon,
+          elevationM: moonHeight(lat, lon),
+          datasetId: terrainDataset(),
+          siteId,
+        })
       }),
     [],
   )
@@ -174,16 +185,18 @@ function CoordForm({ label, lat, lon, onSet }: CoordFormProps) {
  *  1. Launch sites: one or more (＋ adds another to compare). Click a red dot on Earth, choose from
  *     the list, or type coordinates near a site. A dot click fills the highlighted slot.
  *  2. Rocket and launch time.
- *  3. Landing points on the Moon: one or more (＋ adds another to compare). Type coordinates, click a
- *     named lunar site, or switch on "Pick on Moon" and click the Moon's surface (only then does a
- *     click on the Moon pick a point). Each fills the highlighted slot.
- *     "Pick on the Moon map" opens the Landing settings drawer with the Moon map.
+ *  3. Landing points on the Moon: A, the primary landing (the rocket flies there), and with ＋
+ *     alternatives B, C… (dots on the Moon, compared with A in Lunar Sky, no rocket). Type
+ *     coordinates, click a named lunar site, or switch on "Pick" and click the Moon's surface (only
+ *     then does a click on the Moon pick a point). Each fills the highlighted slot. The Landing
+ *     settings drawer (Moon map) adds points too, with its Apply button.
  *  4. Fuel policy: fastest flight or least fuel.
  * Choosing a launch site opens its 3D model on the right. "Compute" runs the mission simulation
- * (backend) from the highlighted site to the highlighted landing point; once it is done the rocket
- * lifts off on its own in that model (see launchSites/launch/useAutoLaunch) while the same flight starts in the solar
+ * (backend) from the highlighted site to landing A; once it is done the rocket lifts off on its own
+ * in that model (see launchSites/launch/useAutoLaunch) while the same flight starts in the solar
  * system.
- * "Detail information" opens the analysis (MissionResults).
+ * "Detail information" opens Lunar Sky in the drawer on the left, for landing A at the mission
+ * clock's time (its "Landing comparison" table ranks A with the alternatives).
  */
 export function MissionPanel() {
   const missionSites = useSimStore((s) => s.missionSites)
@@ -202,6 +215,17 @@ export function MissionPanel() {
   const flightError = useMissionStore((s) => s.error)
   const result = useMissionStore((s) => s.result)
   const computing = flight === 'queued' || flight === 'running'
+  const [hidden, setHidden] = useState(false) // folded down to a small "Mission" tab by hand (▾)
+  // While the drawer on the left (Landing settings / Lunar Sky) is open the panel folds away by
+  // itself and comes back when the drawer closes; its tab still opens it in between.
+  const drawerOpen = useSimStore((s) => s.drawerOpen)
+  const [openOverDrawer, setOpenOverDrawer] = useState(false) // opened by hand while the drawer is open
+  const [lastDrawerOpen, setLastDrawerOpen] = useState(drawerOpen)
+  if (lastDrawerOpen !== drawerOpen) {
+    setLastDrawerOpen(drawerOpen)
+    setOpenOverDrawer(false) // the drawer opened or closed: back to folding with it
+  }
+  const folded = hidden || (drawerOpen && !openOverDrawer)
   useLandingSync(lunarSites)
 
   const activeId = missionSites[activeSlot] ?? null
@@ -209,6 +233,7 @@ export function MissionPanel() {
   const anySite = missionSites.some((id) => id !== null)
   const canAdd = missionSites.length < LAUNCH_SITES.length && missionSites.every((id) => id !== null)
   const point = landingPoints[activeLanding] ?? null // the landing point being edited
+  const primary = landingPoints[PRIMARY_SLOT] ?? null // landing A: the rocket flies there
   const anyLanding = landingPoints.some((p) => p !== null)
   const canAddLanding = landingPoints.length < MAX_LANDING_POINTS && landingPoints.every((p) => p !== null)
 
@@ -251,14 +276,14 @@ export function MissionPanel() {
     return null
   }
 
-  /** Flight from the highlighted launch site to the highlighted landing point. */
+  /** Flight from the highlighted launch site to the primary landing (A); B, C… get no rocket. */
   const computeFlight = () => {
-    if (!activeSite || !point) return
+    if (!activeSite || !primary) return
     const sim = useSimStore.getState()
     sim.setLaunchTime(Math.floor(sim.simTimeMs / 60_000) * 60_000) // launch window from the clock's time
     const m = useMissionStore.getState()
     m.setLaunch({ lat: activeSite.lat, lon: activeSite.lon }, activeSite.name)
-    m.setLanding({ lat: point.latDeg, lon: point.lonDeg })
+    m.setLanding({ lat: primary.latDeg, lon: primary.lonDeg })
     useSimStore.getState().openLaunchSite(activeSite.id) // the liftoff is shown there
     void m.compute()
   }
@@ -273,13 +298,61 @@ export function MissionPanel() {
       : (result?.verdict ?? null)
   const noteTone = computing ? '' : flight === 'error' || (result && !result.landed) ? styles.bad : result ? styles.ok : ''
 
+  /** Empties the planner: launch sites, landing points and the computed flight (asks first if there is one). */
+  const clearAll = () => {
+    const m = useMissionStore.getState()
+    const hasFlight = m.result !== null || m.status === 'queued' || m.status === 'running'
+    if (hasFlight && !window.confirm('Clear the launch sites, the landing points and the computed flight?')) return
+    m.clear()
+    const sim = useSimStore.getState()
+    if (sim.selectedBodyId === 'rocket') sim.selectBody(null) // nothing left to follow
+    sim.clearMission()
+  }
+  const nothingToClear = !anySite && !anyLanding && !result && !computing
+
+  if (folded) {
+    return (
+      <button
+        type="button"
+        className={viewerOpen ? `${styles.tab} ${styles.tabDocked}` : styles.tab}
+        onClick={() => {
+          setHidden(false)
+          if (drawerOpen) setOpenOverDrawer(true)
+        }}
+        title="Show the mission planner"
+      >
+        Mission ▴
+      </button>
+    )
+  }
+
   return (
     <section className={viewerOpen ? `${styles.panel} ${styles.docked}` : styles.panel} aria-label="Mission">
       <header className={styles.header}>
         <h2 className={styles.title}>Mission</h2>
-        <span className={ready ? `${styles.status} ${styles.ok}` : styles.status}>
-          {ready ? 'Ready for launch' : `${setCount} / 2 set`}
-        </span>
+        <div className={styles.headerRight}>
+          <span className={ready ? `${styles.status} ${styles.ok}` : styles.status}>
+            {ready ? 'Ready for launch' : `${setCount} / 2 set`}
+          </span>
+          <button
+            type="button"
+            className={styles.small}
+            disabled={nothingToClear}
+            title="Clear the launch sites, the landing points and the computed flight"
+            onClick={clearAll}
+          >
+            Clear
+          </button>
+          <button
+            type="button"
+            className={styles.hide}
+            title="Hide the mission planner"
+            aria-label="Hide the mission planner"
+            onClick={() => setHidden(true)}
+          >
+            ▾
+          </button>
+        </div>
       </header>
 
       {/* 1. Launch sites */}
@@ -379,7 +452,13 @@ export function MissionPanel() {
               <button
                 type="button"
                 className={styles.chip}
-                title={p ? `${p.latDeg.toFixed(4)}°, ${p.lonDeg.toFixed(4)}° · ${p.elevationM.toFixed(0)} m` : 'Empty: pick a point'}
+                title={
+                  `${landingLabel(p, slot, lunarSites)}: ` +
+                  (slot === PRIMARY_SLOT
+                    ? 'the primary landing, the rocket flies here'
+                    : 'an alternative, compared with A in Lunar Sky (no rocket)') +
+                  (p ? ` · ${p.latDeg.toFixed(4)}°, ${p.lonDeg.toFixed(4)}° · ${p.elevationM.toFixed(0)} m` : ' · empty: pick a point')
+                }
                 onClick={() => useSimStore.getState().setActiveLandingSlot(slot)}
               >
                 {landingLabel(p, slot, lunarSites)}
@@ -401,7 +480,13 @@ export function MissionPanel() {
             type="button"
             className={styles.add}
             disabled={!canAddLanding}
-            title={canAddLanding ? 'Add another landing point to compare' : landingPoints.length >= MAX_LANDING_POINTS ? `At most ${MAX_LANDING_POINTS}` : 'Fill the empty slot first'}
+            title={
+              canAddLanding
+                ? 'Add an alternative landing (B, C…): a dot on the Moon, compared with A in Lunar Sky; no rocket flies there'
+                : landingPoints.length >= MAX_LANDING_POINTS
+                  ? `At most ${MAX_LANDING_POINTS}`
+                  : 'Fill the empty slot first'
+            }
             onClick={() => useSimStore.getState().addLandingSlot()}
           >
             ＋
@@ -416,14 +501,6 @@ export function MissionPanel() {
             }}
           >
             {picking ? 'Click the Moon… (Esc)' : '◎ Pick'}
-          </button>
-          <button
-            type="button"
-            className={styles.link}
-            title="Open the Landing settings with the Moon map"
-            onClick={openLandingMap}
-          >
-            Pick on the Moon map ›
           </button>
         </div>
         <CoordForm
@@ -473,13 +550,13 @@ export function MissionPanel() {
           <button
             type="button"
             className={`${styles.go} ${styles.compute}`}
-            disabled={!activeSite || !point || computing}
+            disabled={!activeSite || !primary || computing}
             title={
               !activeSite
                 ? 'Choose a launch site first'
-                : !point
-                  ? 'Set the landing point on the Moon first'
-                  : `Compute the trajectory ${activeSite.name} → ${landingLabel(point, activeLanding, lunarSites)}; liftoff follows on its own`
+                : !primary
+                  ? 'Set landing A on the Moon first'
+                  : `Compute the trajectory ${activeSite.name} → ${landingLabel(primary, PRIMARY_SLOT, lunarSites)}; liftoff follows on its own`
             }
             onClick={computeFlight}
           >
@@ -501,8 +578,12 @@ export function MissionPanel() {
             type="button"
             className={`${styles.go} ${styles.results}`}
             disabled={!ready}
-            title={ready ? 'Arrival, landing area, power and comms' : 'Set a launch site and a landing point first'}
-            onClick={() => useSimStore.getState().setResultsOpen(true)}
+            title={
+              ready
+                ? 'Open Lunar Sky: Sun and Earth over the landing point, link, launch sites, power & comms ranking'
+                : 'Set a launch site and a landing point first'
+            }
+            onClick={() => openMoonDrawer('#moon-sky')}
           >
             Detail information ▸
           </button>

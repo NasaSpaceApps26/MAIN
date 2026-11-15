@@ -1,4 +1,4 @@
-import { MoonPhaseIcon } from '../icons/Icons'
+import logoUrl from '../../assets/logo.png'
 import { useSimStore } from '../../store/simStore'
 import { SIZE_OPTIONS } from '../SolarSystem/scale'
 import { MissionClock } from './MissionClock'
@@ -18,7 +18,7 @@ export function TopBar() {
   return (
     <div className={styles.bar}>
       <div className={styles.brand}>
-        <span className={styles.logo} aria-hidden="true"><MoonPhaseIcon /></span>
+        <img className={styles.logo} src={logoUrl} alt="" aria-hidden="true" />
         <div>
           <h1 className={styles.title}>Lunar Mission Explorer</h1>
           <p className={styles.subtitle}>Earth–Moon transit simulator</p>

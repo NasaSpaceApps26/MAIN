@@ -22,7 +22,7 @@ export type CameraView = 'top' | 'angled' | 'earthMoon'
 export type LandingPoint = MoonPoint & { siteId: string | null }
 
 const APOLLO_11_LAUNCH = Date.UTC(1969, 6, 16, 13, 32)
-export const MAX_LANDING_POINTS = 6
+export const MAX_LANDING_POINTS = 4 // landing A (primary) and up to three alternatives: B, C, D
 
 type SimState = {
   simTimeMs: number
@@ -44,6 +44,7 @@ type SimState = {
   launchTimeMs: number // planned liftoff, UTC ms
   pickingLanding: boolean // "Pick on Moon" mode: the next click on the Moon sets the active landing point
   resultsOpen: boolean // the mission results window
+  drawerOpen: boolean // the drawer on the left (Landing settings / Lunar Sky) is open: the mission panel folds away
   cameraRequest: { view: CameraView; n: number } | null // n goes up on every click, so the same button works twice
   requestCameraView: (view: CameraView) => void
   setSimTime: (t: number) => void
@@ -63,6 +64,7 @@ type SimState = {
   removeMissionSiteSlot: (slot: number) => void
   setActiveSiteSlot: (slot: number) => void
   setLandingPoint: (point: LandingPoint | null) => void
+  setLandingPointAt: (slot: number, point: LandingPoint | null) => void
   addLandingSlot: () => void
   removeLandingSlot: (slot: number) => void
   setActiveLandingSlot: (slot: number) => void
@@ -70,6 +72,8 @@ type SimState = {
   setLaunchTime: (t: number) => void
   setPickingLanding: (on: boolean) => void
   setResultsOpen: (open: boolean) => void
+  setDrawerOpen: (open: boolean) => void
+  clearMission: () => void
 }
 
 type MissionFields = Pick<SimState, 'missionSites' | 'landingPoints'>
@@ -91,7 +95,7 @@ const toMinute = (t: number) => Math.floor(t / 60_000) * 60_000
 export const useSimStore = create<SimState>()((set, get) => ({
   simTimeMs: APOLLO_11_LAUNCH,
   isPlaying: false,
-  timeScale: 43_200, // 12 h per second, the slowest speed
+  timeScale: 43_200, // 12 h per second (the speeds in the top bar: components/TopBar/clockSpeeds.ts)
   selectedBodyId: null,
   planetSize: 250, // the standard size
   shadows: true,
@@ -107,6 +111,7 @@ export const useSimStore = create<SimState>()((set, get) => ({
   launchTimeMs: APOLLO_11_LAUNCH,
   pickingLanding: false,
   resultsOpen: false,
+  drawerOpen: false,
   cameraRequest: null,
   requestCameraView: (view) =>
     set((s) => ({ cameraRequest: { view, n: (s.cameraRequest?.n ?? 0) + 1 } })),
@@ -165,6 +170,9 @@ export const useSimStore = create<SimState>()((set, get) => ({
       if (existing !== -1) return { activeLandingSlot: existing }
       return { landingPoints: s.landingPoints.map((old, i) => (i === s.activeLandingSlot ? point : old)) }
     }),
+  // Into one given slot, whichever is active (the Lunar Sky map always sets the primary landing, A)
+  setLandingPointAt: (slot, point) =>
+    set((s) => ({ landingPoints: s.landingPoints.map((old, i) => (i === slot ? point : old)) })),
   addLandingSlot: () =>
     set((s) =>
       s.landingPoints.length >= MAX_LANDING_POINTS
@@ -182,4 +190,16 @@ export const useSimStore = create<SimState>()((set, get) => ({
   setLaunchTime: (t) => set({ launchTimeMs: t }),
   setPickingLanding: (on) => set({ pickingLanding: on }),
   setResultsOpen: (open) => set({ resultsOpen: open }),
+  setDrawerOpen: (open) => set({ drawerOpen: open }),
+  // the mission panel's "Clear": no launch sites, no landing points, the launch site window closed
+  // (rocket, fuel policy and the clock stay as they are)
+  clearMission: () =>
+    set({
+      missionSites: [null],
+      activeSiteSlot: 0,
+      landingPoints: [null],
+      activeLandingSlot: 0,
+      pickingLanding: false,
+      launchSiteId: null,
+    }),
 }))

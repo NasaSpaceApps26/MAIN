@@ -19,7 +19,9 @@ export function useAutoLaunch(pads: readonly LaunchPad[]) {
     if (!pending || !pad) return
     const timer = setTimeout(() => {
       if (!useMissionStore.getState().takeLaunch()) return
-      startFlightClock()
+      // the clock waits at the start of the countdown: LaunchTimeSync runs it from here in real time
+      // with the 3D countdown and liftoff (not at the top bar's speed, which would run ahead of it)
+      startFlightClock(undefined, { play: false })
       useLaunchStore.getState().launch(pad)
     }, AUTO_LAUNCH_DELAY_MS)
     return () => clearTimeout(timer)

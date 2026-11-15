@@ -1,7 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useSimStore } from '../../store/simStore'
 import { flightPathOf } from './flightPath'
-import { followFlight, rocketTracker, useFlight, useFlightStatus, useMissionStore } from './missionStore'
+import {
+  followFlight,
+  rocketTracker,
+  showFlightOverview,
+  useFlight,
+  useFlightStatus,
+  useMissionStore,
+} from './missionStore'
 import type { MissionResult } from './types'
 import styles from './FlightPanel.module.css'
 
@@ -55,7 +62,6 @@ export function FlightPanel() {
   const log = useMissionStore((s) => s.log)
   const error = useMissionStore((s) => s.error)
   const elapsedS = useMissionStore((s) => s.elapsedS)
-  const autoSpeed = useMissionStore((s) => s.autoSpeed)
   // the launch site's 3D model sits in the same corner and shows the liftoff: stay out of its way
   const viewerOpen = useSimStore((s) => s.launchSiteId !== null)
   const busy = status === 'queued' || status === 'running'
@@ -116,22 +122,25 @@ export function FlightPanel() {
                 <button type="button" className={styles.launch} onClick={() => followFlight(-20)}>
                   Fly in space view
                 </button>
-                <button type="button" onClick={() => useSimStore.getState().selectBody('rocket')}>
+                <button type="button" title="Earth and the Moon: the whole manoeuvre" onClick={showFlightOverview}>
+                  Overview
+                </button>
+                <button
+                  type="button"
+                  title="Close up behind the rocket"
+                  onClick={() => useSimStore.getState().selectBody('rocket')}
+                >
                   Follow
                 </button>
               </div>
               <p className={styles.hint}>
-                After Compute the rocket lifts off on its own in the launch site's 3D model, and the space view
-                follows it to the Moon.
+                After Compute the rocket lifts off on its own in the launch site's 3D model; 14 s after liftoff the
+                space view takes over and pulls back to Earth and the Moon to show the whole flight.
               </p>
-              <label className={styles.check}>
-                <input
-                  type="checkbox"
-                  checked={autoSpeed}
-                  onChange={(e) => useMissionStore.getState().setAutoSpeed(e.target.checked)}
-                />
-                Clock speed follows the flight phase
-              </label>
+              <p className={styles.hint}>
+                The flight runs on the clock at the top, at the speed picked there (at 1 h/s the flight to the
+                Moon takes one to two minutes).
+              </p>
               <Telemetry flight={flight} />
             </>
           )}

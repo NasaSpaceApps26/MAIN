@@ -18,7 +18,7 @@ import styles from './LaunchSiteViewer.module.css'
 
 /**
  * After liftoff the window closes on its own after this many seconds, back to the space view
- * (which then follows the rocket, if its flight is computed).
+ * (which then pulls back to Earth and the Moon to show the whole flight, if it is computed).
  */
 const AUTO_CLOSE_AFTER_LIFTOFF_S = 14
 
@@ -76,10 +76,10 @@ function ViewerWindow({ siteId, onClose }: { siteId: LaunchSiteId; onClose: () =
   // the computed flight lifts off on its own here (no launch controls over the model)
   useAutoLaunch(active.pads)
 
-  // T+18 s: close the window. A real-time timer from liftoff, because the flight's own clock stops
+  // T+14 s: close the window. A real-time timer from liftoff, because the flight's own clock stops
   // early when the rocket fades into the haze. Scrubbing or resetting the launch cancels it.
-  // With a computed flight from this site (mission panel, step 4) the space view takes over right
-  // there: the clock jumps to T+14 s of the flight and the camera follows the rocket to the Moon.
+  // With a computed flight from this site the space view takes over right there: the clock goes to
+  // T+14 s of the flight and the camera pulls back smoothly from the rocket to Earth and the Moon.
   const run = useLaunchStore((s) => s.run)
   const lifted = useLaunchStore((s) => s.phase === 'flight' || s.phase === 'done')
   useEffect(() => {

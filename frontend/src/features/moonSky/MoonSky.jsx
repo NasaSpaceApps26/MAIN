@@ -1,8 +1,10 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useSimStore } from '../../store/simStore';
+import { MAX_LANDING_POINTS, useSimStore } from '../../store/simStore';
+import { moonHeight, terrainDataset } from '../../components/SolarSystem/EarthMoon/moonTerrain';
 import { useMissionStore } from '../mission/missionStore';
 import { PauseIcon, PlayIcon, RestartIcon } from '../../components/icons/Icons';
-import { useMoonSky, useLandingSites } from './useMoonSky.js';
+import { useMoonSky, useLandingSites, useSkyForPoints } from './useMoonSky.js';
+import { analyzeSky } from './analysis.js';
 import Controls from './components/Controls.jsx';
 import SiteSelect from './components/SiteSelect.jsx';
 import MoonMap from './components/MoonMap.jsx';
@@ -19,6 +21,9 @@ import './moonSky.css';
 import { CLOCK_SPEEDS as SPEEDS } from '../../components/TopBar/clockSpeeds';
 import { LaunchSitesTable } from '../mission/LaunchSitesTable';
 import PowerCommsRanking from './components/PowerCommsRanking.jsx';
+import LandingComparison from './components/LandingComparison.jsx';
+import { useLunarSites } from '../../api/hooks';
+import { PRIMARY_SLOT, landingLabel, landingLetter, siteAt } from '../mission/landing';
 
 /** ms → 'YYYY-MM-DDTHH:MM' (UTC), rounded down to the full hour – the range-start format. */
 const toStartInput = (ms) => new Date(Math.floor(ms / 3600_000) * 3600_000).toISOString().slice(0, 16);
@@ -124,6 +129,75 @@ export default function MoonSky({ view = 'results', active = true }) {
   // the named site at this point (same tolerance as the mission panel's labels, mission/landing.ts)
   const site = sites.find((s) => Math.abs(s.lat - p.lat) < 0.05 && Math.abs(s.lon - p.lon) < 0.05);
 
+  // The mission's landings: this point is the primary one (A, where the rocket flies); the
+  // alternatives B, C, D are dots on the Moon map and are compared in "Landing comparison"
+  const landingPoints = useSimStore((s) => s.landingPoints);
+  const { data: lunarSites } = useLunarSites();
+  const alternatives = useMemo(() => landingPoints.flatMap((pt, slot) => (pt && slot !== PRIMARY_SLOT ? [{
+    key: `slot${slot}`, slot, letter: landingLetter(slot), label: landingLabel(pt, slot, lunarSites),
+    lat: pt.latDeg, lon: pt.lonDeg,
+  }] : [])), [landingPoints, lunarSites]);
+  const primary = landingPoints[PRIMARY_SLOT];
+  const pointName = primary && Math.abs(primary.latDeg - p.lat) < 1e-4 && Math.abs(primary.lonDeg - p.lon) < 1e-4
+    ? landingLabel(primary, PRIMARY_SLOT, lunarSites)
+    : site ? site.name : 'Selected point';
+
+  // The two 3D views at the top (Sky card) can show any of the landings: A by default, B/C/D with
+  // the A–D buttons. An alternative's Sun/Earth samples are the ones the comparison table already
+  // fetched (same range); its site model (heights + photo) loads only when it is shown here.
+  const [skySlot, setSkySlot] = useState(PRIMARY_SLOT);
+  const skyAlt = skySlot === PRIMARY_SLOT ? null : alternatives.find((a) => a.slot === skySlot) ?? null;
+  const altSky = useSkyForPoints(skyAlt ? [{ key: 'sky', lat: skyAlt.lat, lon: skyAlt.lon }] : [],
+    { start: startMs, days: p.days, step: p.step });
+  const altSamples = skyAlt ? altSky.byKey.sky ?? null : null;
+  const altAnalysis = useMemo(
+    () => (altSamples ? analyzeSky(altSamples, at, { mode }) : null),
+    [altSamples, at, mode],
+  );
+  const shownSky = skyAlt
+    ? { samples: altSamples, analysis: altAnalysis, lat: skyAlt.lat, lon: skyAlt.lon, label: skyAlt.label,
+      loading: altSky.pending > 0 }
+    : { samples, analysis, lat: p.lat, lon: p.lon, label: pointName, loading: false };
+
+  // Landing settings: the map, the site list and the typed coordinates choose a point (they no
+  // longer change the mission by themselves); the Apply button at the bottom adds it to the mission
+  // as the next landing: an empty slot if there is one, else a new one (A first, then B, C, D).
+  // Time range and step still apply at once.
+  const [chosen, setChosen] = useState(null); // { lat, lon } picked here; null = the Lunar Sky point
+  const pick = chosen ?? { lat: p.lat, lon: p.lon };
+  const pickSite = sites.find((s) => Math.abs(s.lat - pick.lat) < 0.05 && Math.abs(s.lon - pick.lon) < 0.05);
+  // the mission's landings as lettered dots on the map
+  const mapLandings = landingPoints.flatMap((pt, slot) => (pt ? [{
+    key: `slot${slot}`, letter: landingLetter(slot), label: landingLabel(pt, slot, lunarSites),
+    lat: pt.latDeg, lon: pt.lonDeg,
+    note: slot === PRIMARY_SLOT ? 'primary: the rocket lands here' : 'alternative: compared with A, no rocket',
+  }] : []));
+  // where Add puts the point: into A while A is empty (the rocket needs it), otherwise always a new
+  // landing at the end (an empty B stays empty: the point becomes C). Only once all four slots
+  // exist does it fill an empty one; with all four set there is no room.
+  const nextSlot = landingPoints[PRIMARY_SLOT] === null ? PRIMARY_SLOT
+    : landingPoints.length < MAX_LANDING_POINTS ? landingPoints.length
+      : landingPoints.findIndex((pt) => pt === null);
+  const chosenSiteId = siteAt(pick.lat, pick.lon, lunarSites)?.id ?? null;
+  const updatePick = (patch) => {
+    const { lat, lon, ...rest } = patch;
+    if ((lat !== undefined && lat !== pick.lat) || (lon !== undefined && lon !== pick.lon)) {
+      setChosen({ lat: lat ?? pick.lat, lon: lon ?? pick.lon });
+    }
+    if (rest.alt === p.alt) delete rest.alt;
+    if (Object.keys(rest).length) update(rest);
+  };
+  const add = () => {
+    if (nextSlot === -1) return;
+    const { lat, lon } = pick;
+    const s = useSimStore.getState();
+    if (nextSlot === s.landingPoints.length) s.addLandingSlot(); // a new slot at the end (it becomes highlighted)
+    else s.setActiveLandingSlot(nextSlot);
+    s.setLandingPointAt(nextSlot, {
+      latDeg: lat, lonDeg: lon, elevationM: moonHeight(lat, lon), datasetId: terrainDataset(), siteId: chosenSiteId,
+    });
+  };
+
   // A shared link (range + t in the URL) sets the mission clock once, on first open.
   // Declared before the follow effect below, so that effect already sees the restored time.
   const restored = useRef(false);
@@ -156,8 +230,18 @@ export default function MoonSky({ view = 'results', active = true }) {
     <header>
       <h1>{view === 'settings' ? 'Landing settings' : 'Lunar Sky Calculator'}</h1>
       <p className="sub">
-        {site ? <b>{site.name}</b> : <b>Selected point</b>}
-        {' · '}{p.lat.toFixed(4)}°, {p.lon.toFixed(4)}°{' · '}{fmtUtc(at)}
+        {view === 'settings' ? (
+          <>
+            {pickSite ? <b>{pickSite.name}</b> : <b>Selected point</b>}
+            {' · '}{pick.lat.toFixed(4)}°, {pick.lon.toFixed(4)}°
+          </>
+        ) : (
+          <>
+            {site ? <b>{site.name}</b> : <b>Selected point</b>}
+            {' · '}{p.lat.toFixed(4)}°, {p.lon.toFixed(4)}°
+          </>
+        )}
+        {' · '}{fmtUtc(at)}
         {loading && <span className="loading"> · Loading data…</span>}
       </p>
     </header>
@@ -175,12 +259,17 @@ export default function MoonSky({ view = 'results', active = true }) {
             </div>
           )}
           <section className="card">
-            <Controls p={p} onChange={update}>
-              <MoonMap lat={p.lat} lon={p.lon} sites={sites} siteId={site?.id}
-                onPick={(c) => update(c)} />
-              <SiteSelect sites={sites} siteId={site?.id} onChange={update} />
+            <Controls p={{ ...p, lat: pick.lat, lon: pick.lon }} onChange={updatePick}>
+              <MoonMap lat={pick.lat} lon={pick.lon} sites={sites} siteId={pickSite?.id}
+                onPick={(c) => updatePick(c)} others={mapLandings} />
+              <SiteSelect sites={sites} siteId={pickSite?.id} onChange={updatePick} />
             </Controls>
           </section>
+
+          <button type="button" className="apply-big" disabled={nextSlot === -1} onClick={add}
+            title={nextSlot === -1 ? `All ${MAX_LANDING_POINTS} landings are set` : `Adds this point as Landing ${landingLetter(nextSlot)}`}>
+            Add
+          </button>
         </div>
       </div>
     );
@@ -200,21 +289,37 @@ export default function MoonSky({ view = 'results', active = true }) {
 
         <section className="card">
           <h2 className="sky-head">
-            <span>Sky</span>
-            <span className="seg" role="group" aria-label="Sky view">
-              {['3d', '2d'].map((v) => (
-                <button key={v} type="button" className={skyView === v ? 'on' : ''} aria-pressed={skyView === v}
-                  onClick={() => setSkyView(v)}>{v.toUpperCase()}</button>
-              ))}
+            <span>
+              Sky
+              {alternatives.length > 0 && <span className="sky-of"> · {shownSky.label}</span>}
+              {shownSky.loading && <span className="loading"> · Loading…</span>}
+            </span>
+            <span className="sky-controls">
+              {alternatives.length > 0 && (
+                <span className="seg" role="group" aria-label="Landing shown">
+                  {[{ slot: PRIMARY_SLOT, letter: landingLetter(PRIMARY_SLOT), label: pointName }, ...alternatives].map((c) => (
+                    <button key={c.slot} type="button" className={c.slot === (skyAlt ? skySlot : PRIMARY_SLOT) ? 'on' : ''}
+                      aria-pressed={c.slot === (skyAlt ? skySlot : PRIMARY_SLOT)}
+                      title={`Show ${c.label} in the views below`}
+                      onClick={() => setSkySlot(c.slot)}>{c.letter}</button>
+                  ))}
+                </span>
+              )}
+              <span className="seg" role="group" aria-label="Sky view">
+                {['3d', '2d'].map((v) => (
+                  <button key={v} type="button" className={skyView === v ? 'on' : ''} aria-pressed={skyView === v}
+                    onClick={() => setSkyView(v)}>{v.toUpperCase()}</button>
+                ))}
+              </span>
             </span>
           </h2>
           {skyView === '3d' ? (
             <div className="sky-pair">
-              <SkyDome3D samples={samples} a={analysis} lat={p.lat} lon={p.lon} mode="outside" />
-              <SkyDome3D samples={samples} a={analysis} lat={p.lat} lon={p.lon} mode="inside" />
+              <SkyDome3D samples={shownSky.samples} a={shownSky.analysis} lat={shownSky.lat} lon={shownSky.lon} mode="outside" />
+              <SkyDome3D samples={shownSky.samples} a={shownSky.analysis} lat={shownSky.lat} lon={shownSky.lon} mode="inside" />
             </div>
           ) : (
-            <SkyDome samples={samples} a={analysis} />
+            <SkyDome samples={shownSky.samples} a={shownSky.analysis} />
           )}
         </section>
 
@@ -230,8 +335,12 @@ export default function MoonSky({ view = 'results', active = true }) {
 
         <section className="card">
           <h2>Power &amp; comms ranking</h2>
-          <PowerCommsRanking p={p} pointName={site ? site.name : 'Selected point'} station={station}
-            onPick={(c) => update(c)} />
+          <PowerCommsRanking p={p} pointName={pointName} station={station} />
+        </section>
+
+        <section className="card">
+          <h2>Landing comparison</h2>
+          <LandingComparison p={p} station={station} />
         </section>
 
         <section className="card">
@@ -245,7 +354,7 @@ export default function MoonSky({ view = 'results', active = true }) {
             <button type="button" onClick={() => { if (playing) togglePlay(); setSimTime(startMs); }}
               title="Back to range start" aria-label="Back to range start"><RestartIcon /></button>
             <select value={timeScale} onChange={(e) => setTimeScale(+e.target.value)} title="Clock speed (same as the top bar)">
-              {!SPEEDS.some((sp) => sp.value === timeScale) && <option value={timeScale}>auto (flight)</option>}
+              {!SPEEDS.some((sp) => sp.value === timeScale) && <option value={timeScale}>{timeScale} s/s</option>}
               {SPEEDS.map((sp) => <option key={sp.value} value={sp.value}>{sp.label}</option>)}
             </select>
             <input type="range" min={0} max={totalMin} step={10} value={offset}
