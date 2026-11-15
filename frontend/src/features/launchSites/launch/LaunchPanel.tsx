@@ -51,7 +51,7 @@ export function LaunchPanel({ pads }: { pads: readonly LaunchPad[] }) {
 
       {phase === 'idle' ? (
         <button type="button" className={styles.launch} onClick={() => current && launch(current)}>
-          <span aria-hidden>▲</span> Launch
+          Launch
         </button>
       ) : (
         <button type="button" className={styles.reset} onClick={reset}>

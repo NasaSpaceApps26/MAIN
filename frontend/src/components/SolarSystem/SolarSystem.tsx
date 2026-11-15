@@ -8,6 +8,7 @@ import { CelestialBody } from './CelestialBody'
 import { ClockDriver } from './ClockDriver'
 import { Lights } from './Lights'
 import { OrbitLine } from './OrbitLine'
+import { MissionScene } from '../../features/mission/MissionScene'
 
 const DAY_MS = 86_400_000
 const WINDOW_DAYS = 366 // must match WINDOW_DAYS in backend/app/services/horizons_year.py
@@ -63,6 +64,7 @@ export function SolarSystem() {
             </group>
           )
         })}
+        <MissionScene earth={year?.bodies.earth?.samples} moon={year?.bodies.moon?.samples} />
         {bodies && year && <CameraFollow bodies={bodies} year={year} />}
         <OrbitControls makeDefault />
       </Canvas>
