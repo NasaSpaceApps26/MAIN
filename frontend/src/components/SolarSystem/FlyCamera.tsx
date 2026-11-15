@@ -5,6 +5,8 @@ import { Euler, Quaternion, Vector3 } from 'three'
 import type { Body, EphemerisYear } from '../../api/types'
 import { useSimStore } from '../../store/simStore'
 import { bodyOrientation } from './bodyFrame'
+import { followControl } from './followControl'
+import { FRAME_ORDER } from './frameOrder'
 import { drawnPositionAt, parentSamplesOf } from './orbitMath'
 import {
   moonOrbitScale,
@@ -24,12 +26,27 @@ const MAX_DISTANCE = 12_000
 const SCENE_METRE = 1 / 1_000_000_000
 const MIN_ALTITUDE_M = 2
 
+// --- safeguards against camera jumps ---
+/** A longer frame (the browser stalled: tiles loading, garbage collection) moves no further than this. */
+const MAX_STEP_S = 0.05
+/** A wheel turn is spread over a few frames (~0.15 s): the same zoom, without a jump. */
+const WHEEL_RATE = 20
+/** A tilt left by another camera move fades by this much per mouse move while dragging, instead of snapping level. */
+const ROLL_FADE = 0.85
+/**
+ * While nothing is followed, a body the camera is within this many of its radii above carries the
+ * camera along: it would otherwise sweep into the camera while the clock runs (and the collision
+ * would shove the camera to another spot every frame).
+ */
+const CARRY_RADII = 1.5
+
 type Props = {
   bodies?: Body[]
   year?: EphemerisYear
 }
 
 type Surface = {
+  id: string
   lunar: boolean
   toBody: Quaternion // scene → the body's own turning frame (see bodyFrame.ts)
   center: Vector3
@@ -49,6 +66,10 @@ export function FlyCamera({ bodies, year }: Props) {
   const bodyPos = useRef(new Vector3())
   const offset = useRef(new Vector3())
   const forward = useRef(new Vector3())
+  // the carry safeguard: where each body was in the last frame, and the body carrying the camera
+  const lastCenters = useRef(new Map<string, Vector3>())
+  const carriedBy = useRef<string | null>(null)
+  const carryStep = useRef(new Vector3())
 
   useEffect(() => {
     const held = keys.current
@@ -78,10 +99,14 @@ export function FlyCamera({ bodies, year }: Props) {
         return
       }
 
+      // Start from where the camera points now: following the rocket (or another camera move)
+      // may have turned it since the drag began, and the old angles made the view jump back
+      look.setFromQuaternion(camera.quaternion)
       look.y -= (e.clientX - lastX) * LOOK_SPEED
       look.x -= (e.clientY - lastY) * LOOK_SPEED
       look.x = Math.max(-1.55, Math.min(1.55, look.x))
-      look.z = 0
+      // a tilt (roll) left by such a move fades out over the drag instead of snapping to level
+      look.z = Math.abs(look.z) < 1e-3 ? 0 : look.z * ROLL_FADE
 
       camera.quaternion.setFromEuler(look)
 
@@ -158,14 +183,15 @@ export function FlyCamera({ bodies, year }: Props) {
     }
   }, [camera, canvas])
 
+  // Last of the camera steps in every frame (after the clock, the spacecraft and CameraFollow, see
+  // frameOrder.ts): the bodies and the camera are already where they are this frame, so the
+  // collision below checks the real situation and has the last word before the frame is drawn.
   useFrame((_, delta) => {
-    const { simTimeMs, planetSize } = useSimStore.getState()
+    const { simTimeMs, planetSize, selectedBodyId } = useSimStore.getState()
     const orbitScale = moonOrbitScale(planetSize)
+    const dt = Math.min(delta, MAX_STEP_S)
 
     const surfaces: Surface[] = []
-
-    let nearest = camera.position.length()
-    let nearestMetre = SCENE_METRE
 
     for (const body of bodies ?? []) {
       const samples = year?.bodies[body.id]?.samples
@@ -201,6 +227,7 @@ export function FlyCamera({ bodies, year }: Props) {
       const metre = SCENE_METRE * scale
 
       const surface: Surface = {
+        id: body.id,
         lunar: body.id === 'moon',
         toBody: bodyOrientation(body, simTimeMs, new Quaternion()).invert(),
         center: bodyPos.current.clone(),
@@ -210,7 +237,22 @@ export function FlyCamera({ bodies, year }: Props) {
       }
 
       surfaces.push(surface)
+    }
 
+    // Safeguard: carried along by the body the camera was close to in the last frame, while nothing
+    // is followed (CameraFollow carries the camera then) and the flight overview is not placing it
+    const carrier = carriedBy.current
+    if (carrier && selectedBodyId === null && !followControl.panning) {
+      const surface = surfaces.find((s) => s.id === carrier)
+      const before = lastCenters.current.get(carrier)
+      if (surface && before) camera.position.add(carryStep.current.subVectors(surface.center, before))
+    }
+
+    // the nearest surface sets the flying speed
+    let nearest = camera.position.length()
+    let nearestMetre = SCENE_METRE
+
+    for (const surface of surfaces) {
       offset.current.subVectors(
         camera.position,
         surface.center,
@@ -224,7 +266,7 @@ export function FlyCamera({ bodies, year }: Props) {
 
       if (altitude < nearest) {
         nearest = altitude
-        nearestMetre = metre
+        nearestMetre = surface.metre
       }
     }
 
@@ -263,13 +305,16 @@ export function FlyCamera({ bodies, year }: Props) {
 
       camera.position.addScaledVector(
         move.current,
-        speed * Math.min(delta, 0.1),
+        speed * dt,
       )
     }
 
     if (wheel.current !== 0) {
-      const amount = wheel.current
-      wheel.current = 0
+      // a share of the wheel turns still waiting, so one turn plays out over a few frames; the
+      // shares multiply up to the same zoom as taking it all at once
+      const share = Math.abs(wheel.current) < 2 ? 1 : 1 - Math.exp(-dt * WHEEL_RATE)
+      const amount = wheel.current * share
+      wheel.current -= amount
 
       camera.getWorldDirection(forward.current)
 
@@ -288,6 +333,9 @@ export function FlyCamera({ bodies, year }: Props) {
     }
 
     let finalClearance = Infinity
+    // for the carry next frame: the body the camera is close to now
+    let carryNext: string | null = null
+    let carryAltitude = Infinity
 
     for (const surface of surfaces) {
       offset.current.subVectors(
@@ -329,6 +377,20 @@ export function FlyCamera({ bodies, year }: Props) {
         finalClearance,
         distance - radius,
       )
+
+      const altitude = distance - radius
+      if (altitude < surface.equatorial * CARRY_RADII && altitude < carryAltitude) {
+        carryAltitude = altitude
+        carryNext = surface.id
+      }
+    }
+
+    // remember this frame for the carry safeguard
+    carriedBy.current = carryNext
+    for (const surface of surfaces) {
+      const last = lastCenters.current.get(surface.id)
+      if (last) last.copy(surface.center)
+      else lastCenters.current.set(surface.id, surface.center.clone())
     }
 
     if (camera.position.length() > MAX_DISTANCE) {
@@ -352,7 +414,7 @@ export function FlyCamera({ bodies, year }: Props) {
       camera.near = near
       camera.updateProjectionMatrix()
     }
-  })
+  }, FRAME_ORDER.fly)
 
   return null
 }

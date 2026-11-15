@@ -4,6 +4,7 @@ import { Html } from '@react-three/drei'
 import { BufferAttribute, BufferGeometry, Group, type PerspectiveCamera, Vector3 } from 'three'
 import type { StateSample } from '../../api/types'
 import { followControl } from '../../components/SolarSystem/followControl'
+import { FRAME_ORDER } from '../../components/SolarSystem/frameOrder'
 import { positionAt } from '../../components/SolarSystem/orbitMath'
 import { KM_PER_UNIT } from '../../components/SolarSystem/scale'
 import { useSimStore } from '../../store/simStore'
@@ -88,6 +89,7 @@ function PathLines({ path, earth, moon }: { path: FlightPath } & Required<Props>
     () => () => {
       for (const g of [e.all, e.flown, m.all, m.flown]) g.dispose()
       rocketTracker.active = false
+      followControl.panning = false
     },
     [e, m],
   )
@@ -188,7 +190,10 @@ function PathLines({ path, earth, moon }: { path: FlightPath } & Required<Props>
         }
       }
     }
-  })
+    followControl.panning = pan.current.running // FlyCamera leaves the camera to the pull-back
+    // second in the frame, right after the clock: CameraFollow then aims at where the spacecraft is
+    // in this frame, not the last one (see frameOrder.ts)
+  }, FRAME_ORDER.flight)
 
   return (
     <>

@@ -5,6 +5,7 @@ import type { Body, EphemerisYear } from '../../api/types'
 import { useSimStore } from '../../store/simStore'
 import { rocketTracker } from '../../features/mission/missionStore'
 import { followControl } from './followControl'
+import { FRAME_ORDER } from './frameOrder'
 import { drawnPositionAt, parentSamplesOf, positionAt } from './orbitMath'
 import { moonOrbitScale, radiusToUnits } from './scale'
 
@@ -14,6 +15,8 @@ const ROCKET_VIEW_RADII = 0.55
 const MOON_ZONE_RADII = 2.5
 /** Seconds the camera takes to swing into a new rocket view. */
 const SWING_S = 1.6
+/** The rocket view turns with the orbit only while one frame turns it less than this (120°). */
+const MAX_TURN_COS = Math.cos((120 * Math.PI) / 180)
 
 const ECLIPTIC_NORTH = new Vector3(0, 1, 0)
 
@@ -103,10 +106,16 @@ export function CameraFollow({ bodies, year }: Props) {
       } else {
         // Travel with the rocket, so the mouse and W/A/S/D work as if it stood still. As it goes round
         // the body (parking orbit, lunar orbit) the view turns with it, so the body stays below.
-        turn.setFromUnitVectors(lastUp, up)
-        step.current.subVectors(camera.position, lastBodyPos.current).applyQuaternion(turn)
+        step.current.subVectors(camera.position, lastBodyPos.current)
+        // Safeguard: a turn of more than MAX_TURN between two frames (a very fast clock in a low
+        // orbit, or the clock set elsewhere) is no smooth orbit any more, and turning by it would
+        // flip the camera round the body: then the camera keeps its offset from the rocket instead
+        if (lastUp.dot(up) > MAX_TURN_COS) {
+          turn.setFromUnitVectors(lastUp, up)
+          step.current.applyQuaternion(turn)
+          camera.quaternion.premultiply(turn)
+        }
         camera.position.copy(rocket).add(step.current)
-        camera.quaternion.premultiply(turn)
       }
       lastBodyPos.current.copy(rocket)
       lastUp.copy(up)
@@ -148,7 +157,8 @@ export function CameraFollow({ bodies, year }: Props) {
       camera.position.add(step.current.subVectors(bodyPos.current, lastBodyPos.current))
     }
     lastBodyPos.current.copy(bodyPos.current)
-  })
+    // third in the frame: after the clock and the spacecraft, before FlyCamera (see frameOrder.ts)
+  }, FRAME_ORDER.follow)
 
   return null
 }

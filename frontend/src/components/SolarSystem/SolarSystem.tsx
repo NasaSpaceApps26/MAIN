@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { Canvas } from '@react-three/fiber'
 import { Stars } from '@react-three/drei'
+import { useQueryClient } from '@tanstack/react-query'
+import { api } from '../../api/endpoints'
 import { useBodies, useEphemerisYear, useOrbits } from '../../api/hooks'
 import { useSimStore } from '../../store/simStore'
 import { MissionPanel } from '../MissionPanel/MissionPanel'
@@ -18,6 +20,7 @@ import { SurfaceReadoutPanel, SurfaceReadoutTracker } from './SurfaceReadout'
 
 const DAY_MS = 86_400_000
 const WINDOW_DAYS = 366 // must match WINDOW_DAYS in backend/app/services/horizons_year.py
+const PREFETCH_DAYS = 90 // the next year is downloaded this long before the clock reaches it
 
 const toDay = (ms: number) => new Date(ms).toISOString().slice(0, 10) // "YYYY-MM-DD"
 
@@ -31,14 +34,31 @@ export function SolarSystem() {
   const [windowStart, setWindowStart] = useState(() => toDay(useSimStore.getState().simTimeMs))
   const { data: year, isFetching, isError } = useEphemerisYear(windowStart)
 
-  // When the clock leaves the downloaded year, download the year starting at the clock's day
+  // When the clock leaves the downloaded year, switch to the next (or previous) one. Safeguard
+  // against the planets (and a camera following one) freezing at the edge and then jumping: the
+  // next year is downloaded ahead, PREFETCH_DAYS before the edge, so the switch finds it ready.
+  // A clock moved far away (more than a year) starts a year at the clock's day instead.
+  const queryClient = useQueryClient()
   useEffect(() => {
     const startMs = Date.parse(windowStart)
     const stopMs = startMs + WINDOW_DAYS * DAY_MS
+    const next = toDay(stopMs - DAY_MS) // overlaps this year by a day: no gap at the seam
+    const previous = toDay(startMs - (WINDOW_DAYS - 1) * DAY_MS)
+    let prefetched = false
     return useSimStore.subscribe(({ simTimeMs }) => {
-      if (simTimeMs < startMs || simTimeMs >= stopMs) setWindowStart(toDay(simTimeMs))
+      if (simTimeMs >= stopMs) {
+        setWindowStart(simTimeMs < stopMs + (WINDOW_DAYS - 2) * DAY_MS ? next : toDay(simTimeMs))
+      } else if (simTimeMs < startMs) {
+        setWindowStart(simTimeMs >= startMs - (WINDOW_DAYS - 2) * DAY_MS ? previous : toDay(simTimeMs))
+      } else if (!prefetched && simTimeMs > stopMs - PREFETCH_DAYS * DAY_MS) {
+        prefetched = true
+        // into the cache only (a failure is fine: the switch then downloads it as before)
+        queryClient
+          .query({ queryKey: ['ephemeris-year', next], queryFn: () => api.ephemerisYear(next), staleTime: Infinity })
+          .catch(() => {})
+      }
     })
-  }, [windowStart])
+  }, [windowStart, queryClient])
 
   return (
     <>
