@@ -31,6 +31,7 @@ type SimState = {
   selectedBodyId: string | null
   planetSize: number // how many times bigger planets are drawn. The choices are SIZE_OPTIONS in SolarSystem/scale.ts
   shadows: boolean // false: every body is lit evenly, no night side
+  showPoints: boolean // false: hides every site dot (Earth launch sites, Moon sites, historic landings)
   departureSiteId: string | null
   readout: SurfaceReadout | null
   launchSiteId: LaunchSiteId | null // launch site whose 3D model window is open
@@ -52,6 +53,7 @@ type SimState = {
   selectBody: (id: string | null) => void
   setPlanetSize: (size: number) => void
   setShadows: (on: boolean) => void
+  setShowPoints: (on: boolean) => void
   setDepartureSite: (id: string | null) => void
   setReadout: (readout: SurfaceReadout | null) => void
   openLaunchSite: (id: LaunchSiteId | null) => void
@@ -90,6 +92,7 @@ export const useSimStore = create<SimState>()((set, get) => ({
   selectedBodyId: null,
   planetSize: 250, // the standard size
   shadows: true,
+  showPoints: true,
   departureSiteId: null,
   readout: null,
   launchSiteId: null,
@@ -114,6 +117,7 @@ export const useSimStore = create<SimState>()((set, get) => ({
   selectBody: (id) => set({ selectedBodyId: id }),
   setPlanetSize: (size) => set({ planetSize: size }),
   setShadows: (on) => set({ shadows: on }),
+  setShowPoints: (on) => set({ showPoints: on }),
   setDepartureSite: (id) => set({ departureSiteId: id }),
   setReadout: (readout) => set({ readout }),
   openLaunchSite: (id) => set({ launchSiteId: id }),
