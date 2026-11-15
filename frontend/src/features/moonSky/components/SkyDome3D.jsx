@@ -2,6 +2,7 @@ import { useEffect, useEffectEvent, useLayoutEffect, useMemo } from 'react';
 import { Canvas, useThree } from '@react-three/fiber';
 import { Line, OrbitControls, Stars } from '@react-three/drei';
 import { AdditiveBlending, CanvasTexture, DoubleSide, LinearFilter, SRGBColorSpace } from 'three';
+import { HALF, useSiteModel } from '../siteModel.js';
 
 const R = 10; // dome radius
 const DEG = Math.PI / 180;
@@ -9,7 +10,11 @@ const SUN = '#f5b83d';
 const EARTH = '#4ea8ff';
 const TEXT = '#e6e9f2';
 const MUTED = '#8a93ab';
-const EYE = [0, 0.8, 0]; // observer's eye at the lander
+const RELIEF = 2; // the overview draws the terrain twice as tall; from the lander it is true scale
+const EYE_M = 3; // eye height above the ground at the lander, metres
+const M_PER_UNIT = 1250; // a model unit on the ground: the 40 km block is 2·HALF = 32 units wide
+const EYE = [0, EYE_M / M_PER_UNIT, 0]; // observer's eye at the lander (the ground there is y = 0)
+const EYE_FLAT = [0, 0.8, 0]; // eye over the flat stand-in ground, until the terrain has loaded
 
 /** Direction in the sky -> point on a sphere of radius r: north = -z, east = +x, up = +y. */
 function toXYZ(az, el, r = R) {
@@ -113,8 +118,8 @@ function Grid({ labelScale }) {
   );
 }
 
-/** Patch of grey regolith with a few low crater rims, and a small lander where the observer stands. */
-function Ground() {
+/** Flat stand-in while the terrain loads (or if it fails): grey regolith with a few low crater rims. */
+function FlatGround() {
   const craters = [
     [4, -6, 1.6],
     [-7, 3, 2.2],
@@ -135,8 +140,39 @@ function Ground() {
           <meshStandardMaterial color="#918d86" roughness={1} />
         </mesh>
       ))}
-      {/* lander: gold foil body on four legs */}
-      <mesh position={[0, 0.45, 0]}>
+    </>
+  );
+}
+
+/**
+ * The landing site in 3D (siteModel.js): LOLA heights draped with LROC imagery, as a block with
+ * dark sides. `relief` stretches it vertically about the site, which stays at y = 0.
+ */
+function Terrain({ model, relief }) {
+  return (
+    <group scale={[1, relief, 1]}>
+      <mesh geometry={model.ground} castShadow receiveShadow>
+        {model.texture ? (
+          <meshStandardMaterial map={model.texture} roughness={1} metalness={0} />
+        ) : (
+          <meshStandardMaterial color="#8a867f" roughness={1} metalness={0} />
+        )}
+      </mesh>
+      <mesh geometry={model.walls}>
+        <meshStandardMaterial color="#34322f" roughness={1} side={DoubleSide} />
+      </mesh>
+    </group>
+  );
+}
+
+/**
+ * Lander where the observer stands: gold foil body on four legs. Drawn as a symbol, far larger than
+ * a real lander (that would be a few millimetres across the 40 km model), with a pin above it.
+ */
+function Lander({ size = 1, labelScale }) {
+  return (
+    <group scale={size}>
+      <mesh position={[0, 0.45, 0]} castShadow>
         <boxGeometry args={[0.5, 0.35, 0.5]} />
         <meshStandardMaterial color="#c9a23a" metalness={0.6} roughness={0.35} />
       </mesh>
@@ -146,7 +182,9 @@ function Ground() {
           <meshStandardMaterial color="#9a9a9a" />
         </mesh>
       ))}
-    </>
+      <Line points={[[0, 0.62, 0], [0, 1.8, 0]]} color="#ffd75e" lineWidth={1.2} transparent opacity={0.8} />
+      <Label text="Landing site" position={[0, 1.8, 0]} lift={0.6} size={0.036 * labelScale} border="#ffd75e" />
+    </group>
   );
 }
 
@@ -219,7 +257,7 @@ function Body({ kind, b, sunDir, labelScale }) {
  * Places the camera when the view mode changes: outside, far enough back that the whole dome fits
  * the canvas whatever its shape; or at the lander's eye, looking toward the Earth.
  */
-function CameraRig({ mode, lookAt, aimKey }) {
+function CameraRig({ mode, lookAt, aimKey, eye }) {
   const camera = useThree((s) => s.camera);
   const aspect = useThree((s) => s.size.width / Math.max(1, s.size.height));
   const place = useEffectEvent(() => {
@@ -231,16 +269,19 @@ function CameraRig({ mode, lookAt, aimKey }) {
       const dir = [15, 9, 17];
       const len = Math.hypot(...dir);
       camera.position.set((dir[0] / len) * dist, 2 + (dir[1] / len) * dist, (dir[2] / len) * dist);
+      camera.near = 0.05;
     } else {
       camera.fov = 80; // wide enough to see the ground and a body high in the sky together
       // stand at the eye, a hair behind it, so the orbit controls turn the view around the eye
-      const [x, y, z] = toXYZ(lookAt.az, Math.min(35, Math.max(8, lookAt.el)), 0.05);
-      camera.position.set(EYE[0] - x, EYE[1] - y, EYE[2] - z);
+      // (closer than the eye height, so never under the ground)
+      const [x, y, z] = toXYZ(lookAt.az, Math.min(35, Math.max(8, lookAt.el)), Math.min(0.05, eye[1] / 4));
+      camera.position.set(eye[0] - x, eye[1] - y, eye[2] - z);
+      camera.near = Math.min(0.02, eye[1] / 4); // a few metres above the ground: the ground is close
     }
     camera.updateProjectionMatrix();
   });
   // again whenever new data arrives (first load, another site or range), not on every clock tick
-  useLayoutEffect(() => place(), [mode, aimKey]);
+  useLayoutEffect(() => place(), [mode, aimKey, eye]);
   return null;
 }
 
@@ -250,7 +291,10 @@ function CameraRig({ mode, lookAt, aimKey }) {
  * mode = 'outside': the whole dome from outside (drag to turn, scroll to zoom);
  *        'inside':  standing at the lander, looking around the sky (drag to look around).
  */
-export default function SkyDome3D({ samples, a, mode = 'outside' }) {
+export default function SkyDome3D({ samples, a, lat, lon, mode = 'outside' }) {
+  const { model, loading, error } = useSiteModel(lat, lon);
+  const inside = mode === 'inside';
+  const eye = model ? EYE : EYE_FLAT;
   const tracks = useMemo(() => (samples ? { sun: trackSegments(samples.sun), earth: trackSegments(samples.earth) } : null), [samples]);
 
   // direction to the Sun: lights the ground, and gives the Earth its phase (the Sun is so far away
@@ -266,25 +310,55 @@ export default function SkyDome3D({ samples, a, mode = 'outside' }) {
   return (
     <div className="sky3d-wrap">
       <div className="sky3d">
-        <Canvas camera={{ position: [15, 11, 17], fov: 45, near: 0.02, far: 300 }} dpr={[1, 2]}>
+        <Canvas camera={{ position: [15, 11, 17], fov: 45, near: 0.02, far: 300 }} dpr={[1, 2]} shadows>
           <color attach="background" args={['#02030a']} />
           <Stars radius={80} depth={30} count={2500} factor={3} saturation={0} fade speed={0} />
-          <ambientLight intensity={0.9} color="#a9bbdc" />
-          {sunDir && <directionalLight position={sunDir.map((v) => v * 50)} intensity={2.4 * daylight} color="#fff4dc" />}
-          <Ground />
+          {/* no air to scatter light: shadows are deep, only earthshine fills them */}
+          <ambientLight intensity={model ? 0.55 : 0.9} color="#a9bbdc" />
+          {sunDir && (
+            <directionalLight
+              position={sunDir.map((v) => v * 60)}
+              intensity={2.8 * daylight}
+              color="#fff4dc"
+              castShadow={!!model && a.sun.el > -1}
+              shadow-mapSize={[2048, 2048]}
+              shadow-bias={-0.0004}
+              shadow-normalBias={0.04}
+              shadow-camera-left={-HALF * 1.5}
+              shadow-camera-right={HALF * 1.5}
+              shadow-camera-top={HALF * 1.5}
+              shadow-camera-bottom={-HALF * 1.5}
+              shadow-camera-near={1}
+              shadow-camera-far={140}
+            />
+          )}
+          {model ? <Terrain model={model} relief={inside ? 1 : RELIEF} /> : <FlatGround />}
+          {/* the lander symbol stands on the ground; from the lander you are inside it, so it is hidden */}
+          {!inside && <Lander size={model ? 0.7 : 1} labelScale={labelScale} />}
           <Grid labelScale={labelScale} />
           {tracks?.sun.map((seg, i) => <Line key={`s${i}`} points={seg} color={SUN} lineWidth={1.6} dashed dashSize={0.35} gapSize={0.25} />)}
           {tracks?.earth.map((seg, i) => <Line key={`e${i}`} points={seg} color={EARTH} lineWidth={1.6} dashed dashSize={0.35} gapSize={0.25} />)}
           {a && <Body kind="sun" b={a.sun} labelScale={labelScale} />}
           {a && <Body kind="earth" b={a.earth} sunDir={sunDir} labelScale={labelScale} />}
-          <CameraRig mode={mode} lookAt={lookAt} aimKey={samples} />
+          <CameraRig mode={mode} lookAt={lookAt} aimKey={samples} eye={eye} />
           {mode === 'outside' ? (
             <OrbitControls key="outside" makeDefault target={[0, 2, 0]} minDistance={8} maxDistance={70} maxPolarAngle={Math.PI / 2 - 0.04} enablePan={false} />
           ) : (
-            <OrbitControls key="inside" makeDefault target={EYE} enableZoom={false} enablePan={false} rotateSpeed={-0.35} />
+            <OrbitControls key="inside" makeDefault target={eye} enableZoom={false} enablePan={false} rotateSpeed={-0.35} />
           )}
         </Canvas>
-        <span className="sky3d-caption">{mode === 'outside' ? 'Overview' : 'From the lander'}</span>
+        <span className="sky3d-caption">{inside ? 'From the lander' : 'Overview'}</span>
+        <span
+          className="sky3d-note"
+          title={model ? `Heights: ${model.dataset} (${Math.round(model.demSpacingM)} m grid). Imagery: LROC WAC/NAC mosaic via QuickMap.` : undefined}
+        >
+          {loading && 'Loading terrain…'}
+          {error && 'Terrain unavailable · flat ground'}
+          {model &&
+            (inside
+              ? `True scale · eye ${EYE_M} m above ground`
+              : `${model.spanKm} × ${model.spanKm} km · relief ×${RELIEF} · LOLA ${model.demSpacingM < 500 ? '118 m' : '1.9 km'}`)}
+        </span>
       </div>
     </div>
   );

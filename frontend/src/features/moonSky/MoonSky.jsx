@@ -210,8 +210,8 @@ export default function MoonSky({ view = 'results', active = true }) {
           </h2>
           {skyView === '3d' ? (
             <div className="sky-pair">
-              <SkyDome3D samples={samples} a={analysis} mode="outside" />
-              <SkyDome3D samples={samples} a={analysis} mode="inside" />
+              <SkyDome3D samples={samples} a={analysis} lat={p.lat} lon={p.lon} mode="outside" />
+              <SkyDome3D samples={samples} a={analysis} lat={p.lat} lon={p.lon} mode="inside" />
             </div>
           ) : (
             <SkyDome samples={samples} a={analysis} />
@@ -265,7 +265,7 @@ export default function MoonSky({ view = 'results', active = true }) {
         )}
 
         <footer className="muted">
-          Data: JPL Horizons (flat horizon, no terrain mask). All times in UTC.
+          Data: JPL Horizons (flat horizon, no terrain mask). 3D site: LOLA heights (USGS), LROC imagery (QuickMap). All times in UTC.
         </footer>
       </div>
     </div>
